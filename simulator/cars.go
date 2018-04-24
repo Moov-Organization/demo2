@@ -36,13 +36,15 @@ type CarState struct {
 	presentAction PresentAction
 }
 
-func (c *Car) startLoop(broadcast chan map[*Car]CarState,
-					commandReceiver chan CarCommand) {
-	for {
-		carStates := <-broadcast
-		c.currentState = carStates[c]
-		commandReceiver <- c.produceNextCommand()
-	}
+func (c *Car) startLoop(broadcast <-chan map[*Car]CarState,
+					commandReceiver chan<- CarCommand) {
+	go func() {
+		for {
+			carStates := <-broadcast
+			c.currentState = carStates[c]
+			commandReceiver <- c.produceNextCommand()
+		}
+	}()
 }
 
 func (c *Car) produceNextCommand() CarCommand {

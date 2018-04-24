@@ -3,6 +3,7 @@ package main
 import (
 	"demo2/simulator"
 	"fmt"
+	"time"
 )
 
 func main() {
@@ -12,14 +13,16 @@ func main() {
 	path, distance := world.ShortestPath(18, 26)
 	fmt.Println(path, " ", distance)
 	world.SetFrameRate(10)
-	world.AddCars(5)
+	world.AddCars(10)
 	go world.Loop()
-
+	receiveChanncel := world.GetCarStates()
 	for {
-		carStates := world.GetCarStates()
+		start := time.Now()
+		carStates := <-receiveChanncel
 		for _, v := range carStates {
 			fmt.Println(v.Id, " ", v.Coordinates, " ", v.Orientation)
 		}
+		fmt.Println(time.Since(start))
 	}
 }
 

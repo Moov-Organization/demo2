@@ -189,13 +189,14 @@ func (w *World) Loop() {
 	for {
 		w.broadcast <- w.carStates
 		// TODO: Subtract execution time from time to wait
-		timeToWait := time.Duration(1000/w.frameRate) * time.Millisecond
+		timeToWait := time.Duration(1000) * time.Millisecond
 		timer := time.NewTimer(timeToWait)
+		L:
 		for {
 			select {
 			case <-timer.C:
-				break
-			case carCommand := <- w.commandReceiver:
+				break L
+			case carCommand := <-w.commandReceiver:
 				car := w.cars[carCommand.id]
 				w.carCommands[car] = carCommand
 			}
@@ -210,6 +211,6 @@ func (w *World) executeCommands() {
 
 }
 
-func (w *World) GetCarStates() map[*Car]CarState {
-	return <-w.broadcast
+func (w *World) GetCarStates() <-chan map[*Car]CarState {
+	return w.broadcast
 }
