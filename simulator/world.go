@@ -5,7 +5,7 @@ import (
 	"time"
 	"math/rand"
   "math"
-  //"fmt"
+
 )
 
 type Edge struct {
@@ -42,6 +42,8 @@ func NewWorld() *World {
 	world.cars = make(map[uint]*Car)
 	world.carStates = make(map[*Car]CarState)
 	world.carCommands = make(map[*Car]CarCommand)
+	world.broadcast = make(chan map[*Car]CarState)
+	world.commandReceiver = make(chan CarCommand)
 	return world
 }
 
@@ -160,7 +162,7 @@ func (w *World) SetFrameRate(frameRate uint) {
 	w.frameRate = frameRate
 }
 
-func (w World) AddCars(numberOfCars int) ([]*Car) {
+func (w *World) AddCars(numberOfCars int) ([]*Car) {
 	cars := make([]*Car, numberOfCars)
 	for i := 0; i < numberOfCars; i++{
 		cars = append(cars, w.AddCar())
@@ -168,39 +170,46 @@ func (w World) AddCars(numberOfCars int) ([]*Car) {
 	return cars
 }
 
-func (w World) AddCar() (*Car) {
+func (w *World) AddCar() (*Car) {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
 	edge := w.edges[uint(r1.Int() % len(w.edges))]
 	car := Car{id:w.nextCarIndex, path:[]uint{} }
 	w.cars[car.id] = &car
 	//TODO check for collison and add orientation
-	w.carStates[&car] =  CarState{id:car.id, coordinates:edge.startingNode.coordinates, orientation:0, edgeId:edge.id, action:Stopped}
+	w.carStates[&car] =  CarState{Id:car.id, Coordinates:edge.startingNode.coordinates, Orientation:0, edgeId:edge.id, presentAction:Stopped}
 	w.nextCarIndex++
 	return &car
 }
 
-func (w World) Loop() {
+func (w *World) Loop() {
 	for _, car := range w.cars {
 		car.startLoop(w.broadcast, w.commandReceiver)
 	}
 	for {
 		w.broadcast <- w.carStates
+		// TODO: Subtract execution time from time to wait
 		timeToWait := time.Duration(1000/w.frameRate) * time.Millisecond
 		timer := time.NewTimer(timeToWait)
 		for {
 			select {
-			case command := <-w.commandReceiver:
-				w.carCommands[w.cars[command.id]] = command
-				continue
 			case <-timer.C:
 				break
+			case carCommand := <- w.commandReceiver:
+				car := w.cars[carCommand.id]
+				w.carCommands[car] = carCommand
 			}
+
 		}
+
 		w.executeCommands()
 	}
 }
 
-func (w World) executeCommands() {
+func (w *World) executeCommands() {
 
+}
+
+func (w *World) GetCarStates() map[*Car]CarState {
+	return <-w.broadcast
 }

@@ -14,12 +14,12 @@ const (
 	Park CommandAction = 3
 )
 
-type Action int
+type PresentAction int
 const (
-	Moving Action = 0
-	Stopped Action = 1
-	Turning Action = 2
-	Parked Action = 3
+	Moving PresentAction = 0
+	Stopped PresentAction = 1
+	Turning PresentAction = 2
+	Parked PresentAction = 3
 )
 
 type CarCommand struct {
@@ -29,11 +29,11 @@ type CarCommand struct {
 }
 
 type CarState struct {
-	id uint
-	coordinates Coordinates
-	orientation uint8
+	Id uint
+	Coordinates Coordinates
+	Orientation uint
 	edgeId uint
-	action Action
+	presentAction PresentAction
 }
 
 func (c *Car) startLoop(broadcast chan map[*Car]CarState,
@@ -41,6 +41,10 @@ func (c *Car) startLoop(broadcast chan map[*Car]CarState,
 	for {
 		carStates := <-broadcast
 		c.currentState = carStates[c]
-		commandReceiver <- CarCommand{c.id, Stop, 0}
+		commandReceiver <- c.produceNextCommand()
 	}
+}
+
+func (c *Car) produceNextCommand() CarCommand {
+	return CarCommand{c.id, Stop, 0}
 }
