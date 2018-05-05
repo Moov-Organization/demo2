@@ -120,10 +120,10 @@ func main() {
 
   // Instantiate world
   w := sim2.GetWorldFromFile("maps/4by4.map")
-  w.Fps = float64(1)
+  w.Fps = float64(60)
 
   // Instantiate cars
-  numCars := uint(1)
+  numCars := uint(2)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World

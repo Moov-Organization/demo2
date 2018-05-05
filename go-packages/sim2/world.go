@@ -10,6 +10,7 @@ import (
 
 // CarInfo - struct to contain position and velocity information for a simulated car.
 type CarInfo struct {
+  ID uint
   Pos Coords
   Vel Coords  // with respect to current position, offset for a single frame
   Dir Coords  // unit vector with respect to current position
@@ -21,8 +22,9 @@ type World struct {
   CarStates map[uint]CarInfo
   Fps float64
 
+  numRegisteredCars uint  // Total count of registered cars
   syncChans map[uint]chan bool  // Index by actor ID for channel to/from that actor
-  recvChans map[uint]chan CarInfo  // Index by actor ID for channel to/from that actor
+  recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
 }
 
@@ -33,8 +35,9 @@ func NewWorld() *World {
   w.CarStates = make(map[uint]CarInfo)
 
   w.Fps = float64(1)
+  w.numRegisteredCars = 0
   w.syncChans = make(map[uint]chan bool)
-  w.recvChans = make(map[uint]chan CarInfo)
+  // NOTE recvChan is nil until cars are registered
   // NOTE webChan is nil until registered
   return w
 }
@@ -48,9 +51,9 @@ func GetWorldFromFile(fname string) (w *World) {
 
 // RegisterCar - If the car ID has not been taken, allocate new channels for the car ID and true OK.
 //   If the car ID is taken or World is unallocated, return nil channels and false OK value.
-func (w *World) RegisterCar(ID uint) (chan bool, chan CarInfo, bool) {
+func (w *World) RegisterCar(ID uint) (chan bool, *chan CarInfo, bool) {
   // Check for invalid World
-  if w == nil || w.syncChans == nil || w.recvChans == nil {
+  if w == nil || w.syncChans == nil {
     return nil, nil, false
   }
 
@@ -59,11 +62,14 @@ func (w *World) RegisterCar(ID uint) (chan bool, chan CarInfo, bool) {
     return nil, nil, false
   }
 
+  w.numRegisteredCars++
+  //fmt.Println("numRegisteredCars:", w.numRegisteredCars)
+
   // Allocate new channels for registered car
-  w.CarStates[ID] = CarInfo{}  // TODO: randomize/control car location on startup
+  w.CarStates[ID] = CarInfo{ ID:ID }  // TODO: randomize/control car location on startup
   w.syncChans[ID] = make(chan bool, 1)  // Buffer up to one output
-  w.recvChans[ID] = make(chan CarInfo, 1)  // Buffer up to one input
-  return w.syncChans[ID], w.recvChans[ID], true
+  w.recvChan = make(chan CarInfo, w.numRegisteredCars)  // Overwrite buffered allocation
+  return w.syncChans[ID], &w.recvChan, true
 }
 
 // TODO: an UnregisterCar func if necessary
@@ -84,9 +90,9 @@ func (w *World) RegisterWeb() (chan Message, bool) {
 
 // LoopWorld - Begin the world simulation execution loop
 func (w *World) LoopWorld() {
-  counter := uint64(0)
+  itercounter := uint64(0)
   for {
-    //fmt.Println("Iteration", counter)
+    //fmt.Println("Iteration", itercounter)
     timer := time.NewTimer(time.Duration(1000/w.Fps) * time.Millisecond)
 
     // Send out sync flag = true for each registered car
@@ -105,28 +111,19 @@ func (w *World) LoopWorld() {
       }
     }
 
-    // Set up routines to catch incoming car data
-    recvDone := make(chan bool, len(w.recvChans))
-    for ID, carChan := range w.recvChans {
-      go func(idx uint, dataChan chan CarInfo, dstMap map[uint]CarInfo) {
-        data := <- dataChan
-        //fmt.Println("World got new data on index", idx, ":", data)
-        // TODO: any validation of data here
-        // TODO: also consider a clone method for CarInfo for future-proofing copy assign
-        dstMap[idx] = data
-        recvDone <- true
-        //fmt.Println("World recvDone sent on", idx)
-      }(ID, carChan, w.CarStates)
+    // Wait for all registered cars to report
+    carRecvCt := uint(0)
+    for ; carRecvCt < w.numRegisteredCars ; {
+      select {
+        case data := <-w.recvChan:
+          // TODO: deep copy is safer here
+          w.CarStates[data.ID] = data
+          carRecvCt++
+          //fmt.Println("World got new data on index", data.ID, ":", data)
+      }
     }
 
-    // Wait for all channels to report
-    for i := 0; i < len(w.recvChans); i++ {
-      <-recvDone
-      //fmt.Println("World recvDone recv on", i)
-    }
-    //fmt.Println("World done getting all recvDone")
-
-    counter++
+    itercounter++
 
     // Wait for frame update
     <-timer.C

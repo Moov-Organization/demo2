@@ -16,11 +16,11 @@ type Car struct {
   path []uint
   world *World
   syncChan chan bool
-  sendChan chan CarInfo
+  sendChan *chan CarInfo
 }
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, w *World, sync chan bool, send chan CarInfo) *Car {
+func NewCar(id uint, w *World, sync chan bool, send *chan CarInfo) *Car {
   c := new(Car)
   c.id = id
   c.world = w
@@ -51,9 +51,9 @@ func (c *Car) CarLoop() {
 
     // Send movement update request to World
     // TODO: replace this with real update
-    posx += 5
-    inf := CarInfo{ Pos:Coords{posx,0}, Vel:Coords{0,0}, Dir:Coords{1,0} }
-    c.sendChan <- inf
+    posx += 1
+    inf := CarInfo{ ID:c.id, Pos:Coords{posx,0}, Vel:Coords{0,0}, Dir:Coords{1,0} }
+    *c.sendChan <- inf
     //fmt.Println("Car", c.id, ": sent update", inf)
   }
 }
