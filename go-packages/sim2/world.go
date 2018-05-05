@@ -112,15 +112,12 @@ func (w *World) LoopWorld() {
     }
 
     // Wait for all registered cars to report
-    carRecvCt := uint(0)
-    for ; carRecvCt < w.numRegisteredCars ; {
-      select {
-        case data := <-w.recvChan:
-          // TODO: deep copy is safer here
-          w.CarStates[data.ID] = data
-          carRecvCt++
-          //fmt.Println("World got new data on index", data.ID, ":", data)
-      }
+    for carRecvCt := uint(0); carRecvCt < w.numRegisteredCars ; {
+      data := <-w.recvChan
+      // TODO: deep copy is safer here
+      w.CarStates[data.ID] = data
+      carRecvCt++
+      //fmt.Println("World got new data on index", data.ID, ":", data)
     }
 
     itercounter++
