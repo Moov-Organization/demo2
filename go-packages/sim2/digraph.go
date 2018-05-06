@@ -118,6 +118,12 @@ func splitCSV(line string) (float64, float64) {
 
 // ShortestPath - solve for the shortest deighted directional path from start to end vertex.
 func (g Digraph) ShortestPath(startVertID, endVertID uint) (edgeIDs []uint, dist float64) {
+	edge := g.Vertices[startVertID].AdjEdges[0]
+	edgeIDs = append(edgeIDs, edge.ID)
+	edge = edge.End.AdjEdges[0]
+	edgeIDs = append(edgeIDs, edge.ID)
+	edge = edge.End.AdjEdges[0]
+	edgeIDs = append(edgeIDs, edge.ID)
   // TODO: implement this in a concurrency-safe manner: do not modify underlying values!
   return
 }

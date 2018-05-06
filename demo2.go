@@ -4,6 +4,8 @@ import (
   "demo2/go-packages/sim2"
   "log"
   "fmt"
+  "os"
+  "bufio"
 )
 
 // TODO: remove commented-out test prints and make proper test files
@@ -15,8 +17,21 @@ func main() {
   w := sim2.GetWorldFromFile("maps/4by4.map")
   w.Fps = float64(60)
 
+  keys, err := os.Open("keys.txt")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer keys.Close()
+
+  scanner := bufio.NewScanner(keys)
+
+  scanner.Scan()
+  scanner.Scan()
+  //address of the deployed ferris contract
+  existingMrmAddress := scanner.Text()
+
   // Instantiate cars
-  numCars := uint(2)
+  numCars := uint(1)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
@@ -25,8 +40,11 @@ func main() {
       log.Printf("error: failed to register car")
     }
 
+    scanner.Scan()
+    scanner.Scan()
+    carPrivateKey := scanner.Text()
     // Construct car
-    cars[i] = sim2.NewCar(i, w, syncChan, updateChan)
+    cars[i] = sim2.NewCar(i, w, syncChan, updateChan, existingMrmAddress, carPrivateKey)
   }
 
   // Instantiate JSON web output
