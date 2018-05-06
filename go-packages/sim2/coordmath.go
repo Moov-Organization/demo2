@@ -50,7 +50,7 @@ func (c1 Coords) ProjectInDirection(numUnits float64, c2 Coords) (targ Coords) {
   uvec := c1.UnitVector(c2)
 
   // Scale unit vector by desired amplitude
-  targ.X = uvec.X * numUnits
-  targ.Y = uvec.Y * numUnits
+  targ.X = c1.X + uvec.X * numUnits
+  targ.Y = c1.Y + uvec.Y * numUnits
   return
 }
