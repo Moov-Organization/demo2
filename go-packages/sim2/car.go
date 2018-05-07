@@ -1,15 +1,8 @@
 package sim2
 
 import (
-  //"fmt"
   "math"
-  "github.com/ethereum/go-ethereum/ethclient"
-  "github.com/ethereum/go-ethereum/accounts/abi/bind"
-  "github.com/ethereum/go-ethereum/common"
   "log"
-  "github.com/ethereum/go-ethereum/crypto"
-  "github.com/ethereum/go-ethereum/core/types"
-  "context"
   "math/rand"
   "time"
   "fmt"
@@ -20,47 +13,45 @@ import (
 // Car - struct for all info needed to manage a Car within a World simulation.
 type Car struct {
   // TODO determine if Car needs any additional/public members
-  id uint
-  path Path
-  world *World
-  syncChan chan bool
-  sendChan *chan CarInfo
-  ethApi EthAPI
-  acceptanceState AcceptanceState
+  id           uint
+  path         Path
+  world        *World
+  syncChan     chan bool
+  sendChan     *chan CarInfo
+  ethApi       EthApiInterface
+  requestState RequestState
 }
 
 type Path struct {
-  pickUp Coords
-  dropOff Coords
+  pickUp Location
+  dropOff Location
   currentPos Coords
   currentDir Coords
   currentEdgeId uint
   pathState PathState
   routeEdgeIds []uint
+  riderAddress string
+}
+
+type Location struct {
+  intersect Coords
+  edgeID uint
 }
 
 type PathState int
 const (
-  AtRandom PathState = 0
+  WaitingForRequest PathState = 0
   ToPickUp PathState = 1
   ToDropOff PathState = 2
 )
 
-type AcceptanceState int
+type RequestState int
 const (
-  None AcceptanceState = 0
-  Trying AcceptanceState = 1
-  Success AcceptanceState = 2
-  Fail AcceptanceState = 3
+  None    RequestState = 0
+  Trying  RequestState = 1
+  Success RequestState = 2
+  Fail    RequestState = 3
 )
-
-type EthAPI struct {
-  conn *ethclient.Client
-  mrm *MoovRideManager
-  auth *bind.TransactOpts
-  lastEventIndex uint
-  chosenRider common.Address
-}
 
 // NewCar - Construct a new valid Car object
 func NewCar(id uint, w *World, sync chan bool, send *chan CarInfo, mrmAddress string, privateKeyString string) *Car {
@@ -69,72 +60,42 @@ func NewCar(id uint, w *World, sync chan bool, send *chan CarInfo, mrmAddress st
   c.world = w
   c.syncChan = sync
   c.sendChan = send
-  c.acceptanceState = None
+  c.requestState = None
 
 
   s1 := rand.NewSource(time.Now().UnixNano())
   r1 := rand.New(s1)
   edge := c.world.Graph.Edges[uint(r1.Int() % len(c.world.Graph.Edges))]
 
-  c.path.pathState = AtRandom
+  c.path.pathState = WaitingForRequest
   c.path.currentPos = edge.Start.Pos
   c.path.currentDir = edge.Start.Pos.UnitVector(edge.End.Pos)
   c.path.currentEdgeId = edge.ID
-  //TODO check for collison and add orientation
 
-
-  var err error
-  //c.ethApi.conn, err = ethclient.Dial("http://127.0.0.1:7545")
-  c.ethApi.conn, err = ethclient.Dial("ws://127.0.0.1:8546")
-  if err != nil {
-    log.Fatalf("could not create ipc client: %v", err)
-  }
-  c.ethApi.mrm, err = NewMoovRideManager(common.HexToAddress(mrmAddress), c.ethApi.conn)
-  if err != nil {
-    log.Fatalf("could not connect to mrm: %v", err)
-  }
-
-  privateKey, err := crypto.HexToECDSA(privateKeyString)
-  if err != nil {
-    log.Fatalf("could not convert private key to hex: %v", err)
-  }
-  c.ethApi.auth = bind.NewKeyedTransactor(privateKey)
+  c.ethApi = NewEthApi(mrmAddress, privateKeyString)
   return c
 }
 
 // CarLoop - Begin the car simulation execution loop
 func (c *Car) CarLoop() {
 
-  posx := float64(0)  // TODO remove
   for {
       <-c.syncChan // Block waiting for next sync event
-      //TODO: first check that car state is not in the middle of a ride
-      if c.path.pathState == AtRandom {
-        if c.acceptanceState != Trying {
-          if c.acceptanceState == Success {
-            locations, err := c.ethApi.mrm.GetLocations(nil, c.ethApi.chosenRider)
-            if err != nil {
-              log.Println("get locations error: %v", err)
-            }
-            x, y := splitCSV(locations.From)
-            closestCoords, closestEdgeId := c.world.closestEdgeAndCoord(Coords{x,y})
-            c.path.pickUp = closestCoords;
-            c.path.routeEdgeIds, _ = c.world.Graph.ShortestPath(c.world.Graph.Edges[c.path.currentEdgeId].End.ID, c.world.Graph.Edges[closestEdgeId].Start.ID)
-            c.path.pathState = ToPickUp
 
-            x, y = splitCSV(locations.To)
-            c.path.dropOff = Coords{x,y}
-            c.acceptanceState = None
-          } else {
-            addresses, err := c.ethApi.mrm.GetAvailableRides(nil)
-            if err != nil {
-              log.Println("could not get addresses from car: %v", err)
+      if c.path.pathState == WaitingForRequest {
+        if c.requestState != Trying {
+          if c.requestState == Fail || c.requestState == None {
+            if available, address := c.ethApi.GetRideAddressIfAvailable(); available == true {
+              fmt.Println("Found a Ride")
+              go c.tryToAcceptRequest(address)
+              c.requestState = Trying;
             }
-            if len(addresses) > 0 {
-              fmt.Println("Found a Guy")
-              go c.tryToAcceptRequest(addresses[0])
-              c.acceptanceState = Trying;
-            }
+          }else if c.requestState == Success {
+            fmt.Println("Got the Ride")
+            c.path.pickUp, c.path.dropOff = c.getLocations()
+            c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.path.pickUp.edgeID)
+            c.path.pathState = ToPickUp
+            c.requestState = None
           }
         }
       }
@@ -149,14 +110,12 @@ func (c *Car) CarLoop() {
           c.path.routeEdgeIds = c.path.routeEdgeIds[1:]
           if len(c.path.routeEdgeIds) == 0 {
             if c.path.pathState == ToPickUp {
-              closestCoords, closestEdgeId := c.world.closestEdgeAndCoord(c.path.dropOff)
-              c.path.pickUp = closestCoords;
-              c.path.routeEdgeIds, _ = c.world.Graph.ShortestPath(c.world.Graph.Edges[c.path.currentEdgeId].End.ID, c.world.Graph.Edges[closestEdgeId].Start.ID)
+              c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.path.dropOff.edgeID)
               fmt.Println("To Drop off")
               c.path.pathState = ToDropOff
             } else {
               fmt.Println("Back To Random")
-              c.path.pathState = AtRandom
+              c.path.pathState = WaitingForRequest
             }
           }
         }else if c.path.currentPos.Distance(currentEdge.End.Pos) > 1.0 {
@@ -164,7 +123,7 @@ func (c *Car) CarLoop() {
         } else {
           c.path.currentPos = currentEdge.End.Pos
         }
-      } else if c.path.pathState == AtRandom {
+      } else if c.path.pathState == WaitingForRequest {
         endVertex := c.world.Graph.Edges[c.path.currentEdgeId].End
         if c.path.currentPos.Equals(endVertex.Pos) {  // Already at edge end, so change edge
           if len(endVertex.AdjEdges) == 0 {fmt.Println(endVertex.ID)}
@@ -189,48 +148,48 @@ func (c *Car) CarLoop() {
 
       // Send movement update request to World
       // TODO: replace this with real update
-      posx += 5
-      inf := CarInfo{ Pos:c.path.currentPos, Vel:Coords{0,0}, Dir:c.path.currentDir }
-      *c.sendChan <- inf
+      info := CarInfo{ Pos:c.path.currentPos, Vel:Coords{0,0}, Dir:c.path.currentDir }
+      *c.sendChan <- info
       //fmt.Println("Car", c.id, ": sent update", inf)
   }
 }
 
-
-func (c *Car) tryToAcceptRequest (address common.Address) {
-  transaction, err := c.ethApi.mrm.AcceptRideRequest(&bind.TransactOpts{
-    From:     c.ethApi.auth.From,
-    Signer:   c.ethApi.auth.Signer,
-    GasLimit: 2381623,
-  }, address)
-  if err != nil {
-    log.Println("Could not accept ride request from car: %v", err)
-  }
-  fmt.Println("Transaction initiated")
-  receipt, err := bind.WaitMined(context.Background(), c.ethApi.conn, transaction)
-  if err != nil {
-    log.Fatalf("Wait for mining error %s %v: ", err)
-  } else if receipt.Status == types.ReceiptStatusFailed {
+func (c *Car) tryToAcceptRequest(address string) {
+  if c.ethApi.AcceptRequest(address) {
     log.Printf("Accept Request failed \n")
-    c.acceptanceState = Fail
+    c.requestState = Fail
     fmt.Println("Transaction Failed")
   } else {
     log.Printf("Accept Request success \n")
-    c.ethApi.chosenRider = address
-    c.acceptanceState = Success
+    c.path.riderAddress = address
+    c.requestState = Success
     fmt.Println("Transaction Success")
   }
 }
 
+func (c *Car) getLocations() (pickup Location, dropOff Location) {
+  from, to := c.ethApi.GetLocations(c.path.riderAddress)
+  fmt.Println("locations ",from," ", to)
+  x, y := splitCSV(from)
+  pickup = c.world.closestEdgeAndCoord(Coords{x,y})
+  x, y = splitCSV(to)
+  dropOff = c.world.closestEdgeAndCoord(Coords{x,y})
+  return
+}
+
+func (c *Car) getShortestPathToEdge(edgeId uint) (edgeIDs []uint, dist float64) {
+  return c.world.Graph.ShortestPath(c.world.Graph.Edges[c.path.currentEdgeId].End.ID, c.world.Graph.Edges[edgeId].Start.ID)
+}
+
 // closestEdgeAndCoord For coords within world space, find  closest coords on an edge on world graph
 // Return coordinates of closest point on world graph, and corresponding edge ID in world struct
-func (w *World) closestEdgeAndCoord(queryPoint Coords) (intersect Coords, edgeID uint) {
+func (w *World) closestEdgeAndCoord(queryPoint Coords) (location Location) {
   // TODO: input sanitation/validation; error handling?
   // TODO: proper helper function breakdown of closestEdgeAndCoord
 
   shortestDistance := math.Inf(1)
-  intersect = Coords{0, 0}
-  edgeID = 0
+  location.intersect = Coords{0, 0}
+  location.edgeID = 0
 
   // TODO: remove randomness caused by traversing equivalent closest edges with 'range' on map here
   for edgeIdx, edge := range w.Graph.Edges {
@@ -239,8 +198,8 @@ func (w *World) closestEdgeAndCoord(queryPoint Coords) (intersect Coords, edgeID
     //fmt.Print(" query: ", queryPoint, ", shortest: ", shortestDistance, ", new: ", coord, ", dist: ", dist)
     if dist < shortestDistance {
       shortestDistance = dist
-      intersect = coord
-      edgeID = edgeIdx
+      location.intersect = coord
+      location.edgeID = edgeIdx
       //fmt.Print(" (new shortest: ", dist , " @", coord, ")")
     }
     //fmt.Println()
