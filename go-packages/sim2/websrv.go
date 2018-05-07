@@ -31,10 +31,13 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+var ExistingMrmAddress string
+
 // NewWebSrv - Constructor for a valid WebSrv object.
-func NewWebSrv(web chan Message) *WebSrv {
+func NewWebSrv(web chan Message, existingMrmAddress string) *WebSrv {
   s := new(WebSrv)
   s.webChan = web
+  ExistingMrmAddress = existingMrmAddress
   return s
 }
 
@@ -84,7 +87,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Register our new client
 	clients[ws] = true
-
+	ws.WriteMessage(1,[]byte(ExistingMrmAddress) )
 	for {
 		var msg Message
 		// Read in a new message as JSON and map it to a Message object
