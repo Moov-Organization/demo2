@@ -52,7 +52,7 @@ func main() {
   if !ok {
     log.Printf("error: failed to register web output")
   }
-  web := sim2.NewWebSrv(webChan)
+  web := sim2.NewWebSrv(webChan, existingMrmAddress)
 
   // Begin World operation
   go w.LoopWorld()
