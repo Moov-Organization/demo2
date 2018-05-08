@@ -9,12 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"math/rand"
+	"time"
 )
 
 type EthAPI struct {
 	conn *ethclient.Client
 	mrm *MoovRideManager
 	auth *bind.TransactOpts
+	newRideEvent chan *MoovRideManagerNewRideRequest
+	lastNewRequestIndex uint
 }
 
 type EthApiInterface interface {
@@ -42,18 +46,31 @@ func NewEthApi(mrmAddress string, privateKeyString string) (*EthAPI)  {
 		log.Fatalf("could not convert private key to hex: %v", err)
 	}
 	ethApi.auth = bind.NewKeyedTransactor(privateKey)
+	ethApi.newRideEvent = make(chan *MoovRideManagerNewRideRequest)
+	_, err = ethApi.mrm.WatchNewRideRequest(nil, ethApi.newRideEvent);
+	if err != nil {
+		log.Fatalf("could not watch for New Ride event: %v", err)
+	}
 	return &ethApi
 }
 
 func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address string) {
-	addresses, err := ethApi.mrm.GetAvailableRides(nil)
-	if err != nil {
-		log.Println("could not get addresses from car: %v", err)
-	}
-	if len(addresses) > 0 {
-		available = true
-		address = addresses[0].String()
-	} else {
+	select {
+	case msg := <-ethApi.newRideEvent:
+		if msg.Raw.Index > ethApi.lastNewRequestIndex {
+			ethApi.lastNewRequestIndex  = msg.Raw.Index
+				addresses, err := ethApi.mrm.GetAvailableRides(nil)
+			if err != nil {
+				log.Println("could not get addresses from car: ", err)
+			}
+			s1 := rand.NewSource(time.Now().UnixNano())
+			r1 := rand.New(s1)
+			address = addresses[uint(r1.Int()%len(addresses))].String()
+			available = true
+		} else {
+			available = false
+		}
+	default:
 		available = false
 	}
 	return
@@ -66,16 +83,18 @@ func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
 		GasLimit: 2381623,
 	}, common.HexToAddress(address))
 	if err != nil {
-		log.Println("Could not accept ride request from car: %v", err)
-	}
-	fmt.Println("Transaction initiated")
-	receipt, err := bind.WaitMined(context.Background(), ethApi.conn, transaction)
-	if err != nil {
-		log.Fatalf("Wait for mining error %s %v: ", err)
-	} else if receipt.Status == types.ReceiptStatusFailed {
+		log.Println("Could not accept ride request from car: ", err)
 		status = false
 	} else {
-		status = true
+		fmt.Println("Transaction initiated")
+		receipt, err := bind.WaitMined(context.Background(), ethApi.conn, transaction)
+		if err != nil {
+			log.Fatalf("Wait for mining error: %v \n", err)
+		} else if receipt.Status == types.ReceiptStatusFailed {
+			status = false
+		} else {
+			status = true
+		}
 	}
 	return
 }
@@ -83,9 +102,10 @@ func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
 func (ethApi *EthAPI) GetLocations(address string) (from string, to string) {
 	ride, err := ethApi.mrm.Rides(nil, common.HexToAddress(address))
 	if err != nil {
-		log.Println("get locations error: %v", err)
+		log.Println("get locations error: ", err)
 	}
 	from = ride.From
 	to = ride.To
 	return
 }
+

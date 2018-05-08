@@ -14,8 +14,8 @@ func main() {
   fmt.Println("Starting demo2 simulation")
 
   // Instantiate world
-  w := sim2.GetWorldFromFile("maps/4by4.map")
-  w.Fps = float64(60)
+  world := sim2.GetWorldFromFile("maps/4by4.map")
+  world.Fps = float64(50)
 
   keys, err := os.Open("keys.txt")
   if err != nil {
@@ -31,11 +31,11 @@ func main() {
   existingMrmAddress := scanner.Text()
 
   // Instantiate cars
-  numCars := uint(1)
+  numCars := uint(2)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
-    syncChan, updateChan, ok := w.RegisterCar(i)
+    syncChan, updateChan, ok := world.RegisterCar(i)
     if !ok {
       log.Printf("error: failed to register car")
     }
@@ -44,18 +44,19 @@ func main() {
     scanner.Scan()
     carPrivateKey := scanner.Text()
     // Construct car
-    cars[i] = sim2.NewCar(i, w, syncChan, updateChan, existingMrmAddress, carPrivateKey)
+    cars[i] = sim2.NewCar(i, world, syncChan, updateChan)
+    cars[i].SetEthApi(sim2.NewEthApi(existingMrmAddress, carPrivateKey))
   }
 
   // Instantiate JSON web output
-  webChan, ok := w.RegisterWeb()
+  webChan, ok := world.RegisterWeb()
   if !ok {
     log.Printf("error: failed to register web output")
   }
   web := sim2.NewWebSrv(webChan, existingMrmAddress)
 
   // Begin World operation
-  go w.LoopWorld()
+  go world.LoopWorld()
 
   // Begin Car operation
   for i := uint(0); i < numCars; i++ {

@@ -3,7 +3,7 @@ package sim2
 import (
   "time"
   "strconv"
-  //"fmt"
+
 )
 
 // world - Describes world state: position and velocity of all cars in simulation
@@ -26,6 +26,13 @@ type World struct {
   syncChans map[uint]chan bool  // Index by actor ID for channel to/from that actor
   recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
+}
+
+type CarWorldInterface interface {
+  getRandomEdge() (Edge)
+  getEdge(id uint) (Edge)
+  closestEdgeAndCoord(queryPoint Coords) (Location)
+  ShortestPath(startVertID, endVertID uint) ([]uint, float64)
 }
 
 // NewWorld - Constructor for valid World object.
@@ -74,20 +81,6 @@ func (w *World) RegisterCar(ID uint) (chan bool, *chan CarInfo, bool) {
 
 // TODO: an UnregisterCar func if necessary
 
-// RegisterWeb - If not already registered, allocate a channel for web output and true OK.
-func (w *World) RegisterWeb() (chan Message, bool) {
-  // Check for invalid world or previous allocation
-  if w == nil || w.webChan != nil{
-    return nil, false
-  }
-
-  // Allocate new channel for registered web output
-  w.webChan = make(chan Message)
-  return w.webChan, true
-}
-
-// TODO: an UnregisterWeb func if necessary
-
 // LoopWorld - Begin the world simulation execution loop
 func (w *World) LoopWorld() {
   itercounter := uint64(0)
@@ -127,4 +120,35 @@ func (w *World) LoopWorld() {
 
     // World loop iterates
   }
+}
+
+// TODO: an UnregisterWeb func if necessary
+
+// RegisterWeb - If not already registered, allocate a channel for web output and true OK.
+func (w *World) RegisterWeb() (chan Message, bool) {
+  // Check for invalid world or previous allocation
+  if w == nil || w.webChan != nil{
+    return nil, false
+  }
+
+  // Allocate new channel for registered web output
+  w.webChan = make(chan Message)
+  return w.webChan, true
+}
+
+
+func (w *World) getRandomEdge() (Edge) {
+  return w.Graph.getRandomEdge()
+}
+
+func (w *World) closestEdgeAndCoord(queryPoint Coords) (Location) {
+  return w.Graph.closestEdgeAndCoord(queryPoint)
+}
+
+func (w *World) getEdge(id uint) (Edge) {
+  return *w.Graph.Edges[id]
+}
+
+func (w *World) ShortestPath(startVertID, endVertID uint) ([]uint, float64) {
+ return w.Graph.ShortestPath(startVertID, endVertID)
 }
