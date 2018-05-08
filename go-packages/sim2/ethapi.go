@@ -81,10 +81,9 @@ func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
 }
 
 func (ethApi *EthAPI) GetLocations(address string) (from string, to string) {
-	locations, err :=  ethApi.mrm.GetLocations(nil, common.HexToAddress(address))
+	from, to, err :=  ethApi.mrm.GetLocations(nil, common.HexToAddress(address))
 	if err != nil {
 		log.Println("get locations error: %v", err)
 	}
-	fmt.Println(locations)
-	return locations.From, locations.To
+	return
 }
