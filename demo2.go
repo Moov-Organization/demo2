@@ -15,6 +15,12 @@ func main() {
   w := sim2.GetWorldFromFile("maps/4by4.map")
   w.Fps = float64(60)
 
+/*
+  g := sim2.GetDigraphFromFile("maps/4by4.map")
+  a, b := g.ShortestPath(7, 14)
+  fmt.Println("path", a, "dist", b)
+*/
+
   // Instantiate cars
   numCars := uint(2)
   cars := make([]*sim2.Car, numCars)
@@ -49,4 +55,3 @@ func main() {
 
   select{}  // Do work in the coroutines, main has nothing left to do
 }
-//*/
