@@ -73,9 +73,9 @@ func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
 	if err != nil {
 		log.Fatalf("Wait for mining error %s %v: ", err)
 	} else if receipt.Status == types.ReceiptStatusFailed {
-		status = true
-	} else {
 		status = false
+	} else {
+		status = true
 	}
 	return
 }
