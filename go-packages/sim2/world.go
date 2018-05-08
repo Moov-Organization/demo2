@@ -32,7 +32,7 @@ type CarWorldInterface interface {
   getRandomEdge() (Edge)
   getEdge(id uint) (Edge)
   closestEdgeAndCoord(queryPoint Coords) (Location)
-  ShortestPath(startVertID, endVertID uint) ([]uint, float64)
+  ShortestPath(startVertID, endVertID uint) ([]Edge, float64)
 }
 
 // NewWorld - Constructor for valid World object.
@@ -149,6 +149,6 @@ func (w *World) getEdge(id uint) (Edge) {
   return *w.Graph.Edges[id]
 }
 
-func (w *World) ShortestPath(startVertID, endVertID uint) ([]uint, float64) {
+func (w *World) ShortestPath(startVertID, endVertID uint) ([]Edge, float64) {
  return w.Graph.ShortestPath(startVertID, endVertID)
 }

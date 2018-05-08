@@ -120,13 +120,13 @@ func splitCSV(line string) (float64, float64) {
 }
 
 // ShortestPath - solve for the shortest deighted directional path from start to end vertex.
-func (g Digraph) ShortestPath(startVertID, endVertID uint) (edgeIDs []uint, dist float64) {
+func (g Digraph) ShortestPath(startVertID, endVertID uint) (edges []Edge, dist float64) {
 	edge := g.Vertices[startVertID].AdjEdges[0]
-	edgeIDs = append(edgeIDs, edge.ID)
+	edges = append(edges, edge)
 	edge = edge.End.AdjEdges[0]
-	edgeIDs = append(edgeIDs, edge.ID)
+	edges = append(edges, edge)
 	edge = edge.End.AdjEdges[0]
-	edgeIDs = append(edgeIDs, edge.ID)
+	edges = append(edges, edge)
   // TODO: implement this in a concurrency-safe manner: do not modify underlying values!
   return
 }
@@ -232,6 +232,11 @@ func (e *Edge) checkIntersect(query Coords) (intersect Coords, distance float64)
 	}
 	//fmt.Print(", intersect: ", intersect, ", distance: ", distance)
 	//fmt.Println()
+	return
+}
+
+func (e *Edge) unitVector() (c Coords){
+	c = e.Start.Pos.UnitVector(e.End.Pos)
 	return
 }
 

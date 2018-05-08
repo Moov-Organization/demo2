@@ -24,9 +24,9 @@ type Path struct {
   dropOff Location
   currentPos Coords
   currentDir Coords
-  currentEdgeId uint
+  currentEdge Edge
   pathState PathState
-  routeEdgeIds []uint
+  routeEdges []Edge
   riderAddress string
 }
 
@@ -62,11 +62,10 @@ func NewCar(id uint, w CarWorldInterface, sync chan bool, send *chan CarInfo) *C
   c.requestState = None
 
   c.path.pathState = DrivingAtRandom
-  edge := c.world.getRandomEdge()
-  c.path.currentPos = edge.Start.Pos
-  c.path.currentDir = edge.Start.Pos.UnitVector(edge.End.Pos)
-  c.path.currentEdgeId = edge.ID
-  c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.world.getRandomEdge().ID)
+  newEdge := c.world.getRandomEdge()
+  c.path.currentPos = newEdge.Start.Pos
+  c.path.currentEdge = newEdge
+  c.path.routeEdges, _ = c.getShortestPathToEdge(newEdge)
 
   return c
 }
@@ -84,19 +83,19 @@ func (c *Car) CarLoop() {
     case DrivingAtRandom:
       c.checkRequestState()
       c.driveToDestination(func (c *Car) {
-        c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.world.getRandomEdge().ID)
+        c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
         fmt.Println("Car",c.id," To Another Random")
       })
     case ToPickUp:
       c.driveToDestination(func (c *Car) {
-        c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.path.dropOff.edge.ID)
+        c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
         fmt.Println("Car",c.id," To Drop off")
         c.path.pathState = ToDropOff
       })
     case ToDropOff:
       c.driveToDestination(func (c *Car) {
         fmt.Println("Car",c.id," Back To Random")
-        c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.world.getRandomEdge().ID)
+        c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
         c.path.pathState = DrivingAtRandom
       })
     }
@@ -117,7 +116,7 @@ func (c *Car) checkRequestState() {
     }else if c.requestState == Success {
       fmt.Println("Car",c.id," Got the Ride, To Pick Up")
       c.path.pickUp, c.path.dropOff = c.getLocations()
-      c.path.routeEdgeIds, _ = c.getShortestPathToEdge(c.path.pickUp.edge.ID)
+      c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.pickUp.edge)
       c.path.pathState = ToPickUp
       c.requestState = None
     }
@@ -126,11 +125,11 @@ func (c *Car) checkRequestState() {
 
 func (c *Car) tryToAcceptRequest(address string) {
   if c.ethApi.AcceptRequest(address) {
-    log.Println("Car ",c.id," Accept Request success \n")
+    log.Println("Car ",c.id," Accept Request success")
     c.path.riderAddress = address
     c.requestState = Success
   } else {
-    log.Println("Car ",c.id," Accept Request failed \n")
+    log.Println("Car ",c.id," Accept Request failed")
     c.requestState = Fail
   }
 }
@@ -145,26 +144,27 @@ func (c *Car) getLocations() (pickup Location, dropOff Location) {
   return
 }
 
-func (c *Car) getShortestPathToEdge(edgeId uint) (edgeIDs []uint, dist float64) {
-  return c.world.ShortestPath(c.world.getEdge(c.path.currentEdgeId).End.ID, c.world.getEdge(edgeId).Start.ID)
+func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
+  return c.world.ShortestPath(c.path.currentEdge.End.ID, edge.Start.ID)
 }
 
+
 func (c *Car) driveToDestination(changeDestination changeDestinationFunction) {
-  currentEdge := c.world.getEdge(c.path.currentEdgeId)
-  if c.path.currentPos.Equals(currentEdge.End.Pos) {  // Already at edge end, so change edge
-    c.path.currentEdgeId = c.path.routeEdgeIds[0]
-    currentEdge := c.world.getEdge(c.path.currentEdgeId)
-    c.path.currentDir = currentEdge.Start.Pos.UnitVector(currentEdge.End.Pos)
+  if c.path.currentPos.Equals(c.path.currentEdge.End.Pos) {  // Already at edge end, so change edge
+    c.path.currentEdge = c.path.routeEdges[0]
+    c.path.currentDir = c.path.currentEdge.unitVector()
     //fmt.Println("next point route ", c.world.getEdge(c.path.routeEdgeIds[0]).End.ID)
-    c.path.routeEdgeIds = c.path.routeEdgeIds[1:]
-    if len(c.path.routeEdgeIds) == 0 {
+    // Remove the first element of the queue
+    c.path.routeEdges = c.path.routeEdges[1:]
+    // If queue is empty than get next destination
+    if len(c.path.routeEdges) == 0 {
       changeDestination(c)
     }
-  }else if c.path.currentPos.Distance(currentEdge.End.Pos) > 1.0 {
-    c.path.currentPos = c.path.currentPos.ProjectInDirection(1.0, currentEdge.End.Pos)
+  }else if c.path.currentPos.Distance(c.path.currentEdge.End.Pos) > 1.0 {
+    c.path.currentPos = c.path.currentPos.ProjectInDirection(1.0, c.path.currentEdge.End.Pos)
     //TODO: check for collision
   } else {
-    c.path.currentPos = currentEdge.End.Pos
+    c.path.currentPos = c.path.currentEdge.End.Pos
     //TODO: check for stop sign and stop light
   }
 }
