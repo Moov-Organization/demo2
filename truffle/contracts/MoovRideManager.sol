@@ -78,22 +78,6 @@ contract MoovRideManager {
     emit RideFinished(msg.sender, rides[riderAddress].carAddress);
   }
 
-  function getBalance(address addr) public view returns(uint balance) {
-    return rides[addr].amount;
-  }
-
-  function getCarAddress(address addr) public view returns(address) {
-    return rides[addr].carAddress;
-  }
-
-  function getRideStatus(address addr) public view returns(RideStatus) {
-    return rides[addr].rideStatus;
-  }
-
-  function getLocations(address addr) public view returns(string, string) {
-    return (rides[addr].from, rides[msg.sender].to);
-  }
-
   function getAvailableRides() public view returns(address[]) {
     return availableRides;
   }
