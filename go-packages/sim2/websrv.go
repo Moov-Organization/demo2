@@ -4,7 +4,7 @@ import (
   "github.com/gorilla/websocket"
   "net/http"
 	"log"
-  //"fmt"
+
 )
 
 // Message - struct to contain all data relevant to rendering a Car on the frontend.

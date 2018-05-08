@@ -139,17 +139,16 @@ func (g Digraph) closestEdgeAndCoord(queryPoint Coords) (location Location) {
 
 	shortestDistance := math.Inf(1)
 	location.intersect = Coords{0, 0}
-	location.edgeID = 0
 
 	// TODO: remove randomness caused by traversing equivalent closest edges with 'range' on map here
-	for edgeIdx, edge := range g.Edges {
+	for _, edge := range g.Edges {
 		coord, dist := edge.checkIntersect(queryPoint)
 		//fmt.Print("[", edgeIdx, "] <ClosestEdgeAndCoord>")
 		//fmt.Print(" query: ", queryPoint, ", shortest: ", shortestDistance, ", new: ", coord, ", dist: ", dist)
 		if dist < shortestDistance {
 			shortestDistance = dist
 			location.intersect = coord
-			location.edgeID = edgeIdx
+			location.edge = *edge
 			//fmt.Print(" (new shortest: ", dist , " @", coord, ")")
 		}
 		//fmt.Println()
@@ -236,10 +235,10 @@ func (e *Edge) checkIntersect(query Coords) (intersect Coords, distance float64)
 	return
 }
 
-func (g Digraph) getRandomEdge() (edge *Edge) {
+func (g Digraph) getRandomEdge() (edge Edge) {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
-	edge = g.Edges[uint(r1.Int() % len(g.Edges))]
+	edge = *g.Edges[uint(r1.Int() % len(g.Edges))]
 	return
 }
 
