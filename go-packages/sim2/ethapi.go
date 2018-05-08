@@ -55,11 +55,12 @@ func NewEthApi(mrmAddress string, privateKeyString string) (*EthAPI)  {
 }
 
 func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address string) {
+	ethApi.checkConnection()
 	select {
 	case msg := <-ethApi.newRideEvent:
 		if msg.Raw.Index > ethApi.lastNewRequestIndex {
 			ethApi.lastNewRequestIndex  = msg.Raw.Index
-				addresses, err := ethApi.mrm.GetAvailableRides(nil)
+			addresses, err := ethApi.mrm.GetAvailableRides(nil)
 			if err != nil {
 				log.Println("could not get addresses from car: ", err)
 			}
@@ -77,6 +78,7 @@ func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address strin
 }
 
 func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
+	ethApi.checkConnection()
 	transaction, err := ethApi.mrm.AcceptRideRequest(&bind.TransactOpts{
 		From:     ethApi.auth.From,
 		Signer:   ethApi.auth.Signer,
@@ -100,12 +102,20 @@ func (ethApi *EthAPI) AcceptRequest(address string) (status bool) {
 }
 
 func (ethApi *EthAPI) GetLocations(address string) (from string, to string) {
+	ethApi.checkConnection()
 	ride, err := ethApi.mrm.Rides(nil, common.HexToAddress(address))
 	if err != nil {
 		log.Println("get locations error: ", err)
+	} else {
+		from = ride.From
+		to = ride.To
 	}
-	from = ride.From
-	to = ride.To
 	return
+}
+func (ethApi *EthAPI) checkConnection() {
+	_, err := ethApi.conn.NetworkID(context.TODO())
+	if err!= nil {
+		log.Fatalln("Geth Connection Problem")
+	}
 }
 
