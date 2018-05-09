@@ -76,30 +76,33 @@ func (c *Car) CarLoop() {
 
   for {
     <-c.syncChan // Block waiting for next sync event
-    switch c.path.pathState {
-    case DrivingAtRandom:
-      c.checkRequestState()
-      c.driveToDestination(func (c *Car) {
-        c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
-        fmt.Println("Car",c.id," To Another Random")
-      })
-    case ToPickUp:
-      c.driveToDestination(func (c *Car) {
-        c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
-        fmt.Println("Car",c.id," To Drop off")
-        c.path.pathState = ToDropOff
-      })
-    case ToDropOff:
-      c.driveToDestination(func (c *Car) {
-        fmt.Println("Car",c.id," Back To Random")
-        c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
-        c.path.pathState = DrivingAtRandom
-      })
-    }
-
+    c.drive()
     info := CarInfo{ID:c.id, Pos:c.path.currentPos, Vel:Coords{0,0}, Dir:c.path.currentDir }
     *c.sendChan <- info
   }
+}
+
+func (c *Car) drive() {
+	switch c.path.pathState {
+	case DrivingAtRandom:
+		c.checkRequestState()
+		c.driveToDestination(func (c *Car) {
+			c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
+			fmt.Println("Car",c.id," To Another Random")
+		})
+	case ToPickUp:
+		c.driveToDestination(func (c *Car) {
+			c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
+			fmt.Println("Car",c.id," To Drop off")
+			c.path.pathState = ToDropOff
+		})
+	case ToDropOff:
+		c.driveToDestination(func (c *Car) {
+			fmt.Println("Car",c.id," Back To Random")
+			c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
+			c.path.pathState = DrivingAtRandom
+		})
+	}
 }
 
 func (c *Car) checkRequestState() {
