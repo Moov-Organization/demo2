@@ -3,6 +3,7 @@ package sim2
 import (
 	"testing"
 	"time"
+	"math"
 )
 var mockEth MockEthAPI
 var mockWorld MockWorld
@@ -31,7 +32,10 @@ func TestNewCar(t *testing.T) {
 	if car.id != 0 {
 		t.Errorf("Car ID does not equal %d \n", 0)
 	}
-	if car.path.pathState != DrivingAtRandom {
+	if mockWorld.shortestpathStruct.calls != 1 {
+		t.Errorf("Did not query the world to find shortest location between current location and pick up location \n")
+	}
+	if car.path.currentState != DrivingAtRandom {
 		t.Errorf("Car path state not intialized to random \n")
 	}
 	if car.requestState != None {
@@ -49,9 +53,9 @@ func testRequestState(t *testing.T) {
 	// Test for accept request success
 	reset()
 	mockEth.getAddressStruct.returnAvailable = true
+	acceptRequestWaitChannel :=  make(chan bool, 1)
 	mockEth.acceptRequestStruct.function = func (string) bool {
-		time.Sleep(time.Millisecond * 1)
-		return true
+		return <-acceptRequestWaitChannel
 	}
 	car.requestState = None
 	car.drive()
@@ -61,7 +65,8 @@ func testRequestState(t *testing.T) {
 	if mockEth.getAddressStruct.calls != 1 {
 		t.Errorf("Did not try to get address in None state \n")
 	}
-	time.Sleep(time.Millisecond * 2)
+	acceptRequestWaitChannel <- true
+	time.Sleep(time.Millisecond)
 	if car.requestState != Success {
 		t.Errorf("Car request state did not switch to success \n")
 	}
@@ -70,8 +75,7 @@ func testRequestState(t *testing.T) {
 	reset()
 	mockEth.getAddressStruct.returnAvailable = true
 	mockEth.acceptRequestStruct.function = func (string) bool {
-		time.Sleep(time.Millisecond * 1)
-		return false
+		return <-acceptRequestWaitChannel
 	}
 	car.requestState = None
 	car.drive()
@@ -81,9 +85,10 @@ func testRequestState(t *testing.T) {
 	if mockEth.getAddressStruct.calls != 1 {
 		t.Errorf("Did not try to get address in None state \n")
 	}
-	time.Sleep(time.Millisecond * 2)
+	acceptRequestWaitChannel <- false
+	time.Sleep(time.Millisecond)
 	if car.requestState != Fail {
-		t.Errorf("Car request state did not switch to success \n")
+		t.Errorf("Car request state did not switch to fail \n")
 	}
 
 	// Test for retry after failure
@@ -122,7 +127,7 @@ func testRequestState(t *testing.T) {
 	if mockWorld.shortestpathStruct.calls != 1 {
 		t.Errorf("Did not query the world to find shortest location between current location and pick up location \n")
 	}
-	if car.path.pathState != ToPickUp {
+	if car.path.currentState != ToPickUp {
 		t.Errorf("Car path not changed to pick up \n")
 	}
 	if car.requestState != None {
@@ -132,4 +137,68 @@ func testRequestState(t *testing.T) {
 
 func testPathState(t *testing.T) {
 
+	//// Test destination reached after driving at random
+	reset()
+	mockWorld.getRandomEdgeStruct.returnEdge = car.path.currentEdge
+	car.path.currentState = DrivingAtRandom
+	car.path.currentPos = car.path.currentEdge.End.Pos
+	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
+	car.drive()
+	if car.path.currentEdge.ID != 1 {
+		t.Errorf("Car did not switch edges upon reaching \n")
+	}
+	if len(car.path.routeEdges) != 0 {
+		t.Errorf("Last edge was not popped after reaching destination \n")
+	}
+	if mockWorld.shortestpathStruct.calls != 1 {
+		t.Errorf("Did not query the world to find shortest location between current location and random location \n")
+	}
+	if car.path.currentState != DrivingAtRandom {
+		t.Errorf("Car path state not remained in random \n")
+	}
+
+	// Test destination reached after driving to pickup
+	reset()
+	car.path.dropOff.edge =
+		Edge{ID:0,
+			Start:&Vertex{Pos:Coords{0,0}},
+			End:&Vertex{Pos:Coords{1,1}}}
+	car.path.currentState = ToPickUp
+	car.path.currentPos = car.path.currentEdge.End.Pos
+	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
+
+	car.drive()
+	if car.path.currentState != ToDropOff {
+		t.Errorf("Car path state not switched to drop off \n")
+	}
+
+	// Test destination reached after driving to pickup
+	reset()
+	mockWorld.getRandomEdgeStruct.returnEdge = car.path.currentEdge
+	car.path.currentState = ToDropOff
+	car.path.currentPos = car.path.currentEdge.End.Pos
+	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
+	car.drive()
+	if car.path.currentState != DrivingAtRandom {
+		t.Errorf("Car path state not switched to driving at random \n")
+	}
+
+	// Test if current position is projected to end position by Movement per drive when distance is greater than movement per drive
+	reset()
+	originalCarPostion := car.path.currentPos
+	car.drive()
+	distanceMoved := originalCarPostion.Distance(car.path.currentPos)
+	if math.Abs(distanceMoved - MovementPerDrive) > 0.1 {
+		t.Errorf("Current position was not projected by movement per drive \n")
+	}
+
+	// Test if current position is set to end position when distance is less than Movement per drive
+	reset()
+	car.path.currentEdge.End.Pos = Coords{X:0.1, Y:0.1}
+	car.drive()
+	if car.path.currentPos != car.path.currentEdge.End.Pos {
+		t.Errorf("Current position not set to end position upon getting close enough \n")
+	}
+
 }
+
