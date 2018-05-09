@@ -53,7 +53,7 @@ const (
 type changeDestinationFunction func(*Car)
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, w CarWorldInterface, sync chan bool, send *chan CarInfo) *Car {
+func NewCar(id uint, w CarWorldInterface, ethApi EthApiInterface, sync chan bool, send *chan CarInfo) *Car {
   c := new(Car)
   c.id = id
   c.world = w
@@ -66,13 +66,10 @@ func NewCar(id uint, w CarWorldInterface, sync chan bool, send *chan CarInfo) *C
   c.path.currentPos = newEdge.Start.Pos
   c.path.currentEdge = newEdge
   c.path.routeEdges, _ = c.getShortestPathToEdge(newEdge)
-
+  c.ethApi = ethApi
   return c
 }
 
-func (c *Car) SetEthApi(apiInterface EthApiInterface) {
-  c.ethApi = apiInterface
-}
 
 // CarLoop - Begin the car simulation execution loop
 func (c *Car) CarLoop() {

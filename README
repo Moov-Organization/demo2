@@ -1,1 +1,1 @@
-abigen --sol truffle/contracts/MoovRideManager.sol --pkg main --out go-packages/sim2/mrm.go
+abigen --sol truffle/contracts/MoovRideManager.sol --pkg sim2 --out go-packages/sim2/mrm.go
