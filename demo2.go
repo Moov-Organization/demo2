@@ -44,8 +44,8 @@ func main() {
     scanner.Scan()
     carPrivateKey := scanner.Text()
     // Construct car
-    cars[i] = sim2.NewCar(i, world, syncChan, updateChan)
-    cars[i].SetEthApi(sim2.NewEthApi(existingMrmAddress, carPrivateKey))
+    eth := sim2.NewEthApi(existingMrmAddress, carPrivateKey)
+    cars[i] = sim2.NewCar(i, world, eth, syncChan, updateChan)
   }
 
   // Instantiate JSON web output
