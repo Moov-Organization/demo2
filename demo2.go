@@ -37,7 +37,7 @@ func main() {
     // Request to register new car from World
     syncChan, updateChan, ok := world.RegisterCar(i)
     if !ok {
-      log.Printf("error: failed to register car")
+      log.Fatalln("error: failed to register car")
     }
 
     scanner.Scan()
@@ -51,7 +51,7 @@ func main() {
   // Instantiate JSON web output
   webChan, ok := world.RegisterWeb()
   if !ok {
-    log.Printf("error: failed to register web output")
+    log.Fatalln("error: failed to register web output")
   }
   web := sim2.NewWebSrv(webChan, existingMrmAddress)
 

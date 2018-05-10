@@ -30,6 +30,7 @@ type World struct {
 
 type CarWorldInterface interface {
   getRandomEdge() (Edge)
+  getEdge(id uint) (Edge)
   closestEdgeAndCoord(queryPoint Coords) (Location)
   ShortestPath(startVertID, endVertID uint) ([]Edge, float64)
 }
@@ -138,6 +139,10 @@ func (w *World) RegisterWeb() (chan Message, bool) {
 
 func (w *World) getRandomEdge() (Edge) {
   return w.Graph.getRandomEdge()
+}
+
+func (w *World) getEdge(id uint) (Edge) {
+  return *w.Graph.Edges[id]
 }
 
 func (w *World) closestEdgeAndCoord(queryPoint Coords) (Location) {

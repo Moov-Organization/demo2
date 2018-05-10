@@ -24,13 +24,17 @@ func reset() {
 }
 
 func TestNewCar(t *testing.T) {
-	mockWorld.getRandomEdgeStruct.returnEdge =
+	mockWorld.getEdgeStruct.returnEdge =
 		Edge{ID:0,
 			Start:&Vertex{Pos:Coords{0,0}},
 			End:&Vertex{Pos:Coords{1,1}}}
-	car = NewCar(0, &mockWorld, &mockEth, syncChan, recvChan)
-	if car.id != 0 {
-		t.Errorf("Car ID does not equal %d \n", 0)
+	var carID uint = 0
+	car = NewCar(carID, &mockWorld, &mockEth, syncChan, recvChan)
+	if car.id != carID {
+		t.Errorf("Car ID does not equal %d \n", carID)
+	}
+	if mockWorld.getEdgeStruct.paramId != carID {
+		t.Errorf("Edge ID does not equal %d \n", carID)
 	}
 	if mockWorld.shortestpathStruct.calls != 1 {
 		t.Errorf("Did not query the world to find shortest location between current location and pick up location \n")
@@ -188,7 +192,7 @@ func testPathState(t *testing.T) {
 	originalCarPostion := car.path.currentPos
 	car.drive()
 	distanceMoved := originalCarPostion.Distance(car.path.currentPos)
-	if math.Abs(distanceMoved - MovementPerDrive) > 0.1 {
+	if math.Abs(distanceMoved -MovementPerFrame) > 0.1 {
 		t.Errorf("Current position was not projected by movement per drive \n")
 	}
 
