@@ -8,7 +8,7 @@ import (
 // car - Describes routine hooks and logic for Cars within a World simulation
 
 // The distance the car should move every drive call
-const MovementPerDrive = 1.0
+const MovementPerFrame = 1.0
 
 // Car - struct for all info needed to manage a Car within a World simulation.
 type Car struct {
@@ -63,7 +63,7 @@ func NewCar(id uint, w CarWorldInterface, ethApi EthApiInterface, sync chan bool
   c.requestState = None
 
   c.path.currentState = DrivingAtRandom
-  newEdge := c.world.getRandomEdge()
+  newEdge := c.world.getEdge(c.id)
   c.path.currentPos = newEdge.Start.Pos
   c.path.currentEdge = newEdge
   c.path.routeEdges, _ = c.getShortestPathToEdge(newEdge)
@@ -83,7 +83,9 @@ func (c *Car) CarLoop() {
 }
 
 func (c *Car) checkRequestState() {
-  if c.requestState != Trying {
+  if c.requestState == Trying {
+    return
+  } else {
     if c.requestState == Fail || c.requestState == None {
       if available, address := c.ethApi.GetRideAddressIfAvailable(); available == true {
         fmt.Println("Car",c.id," Found a Ride")
@@ -148,8 +150,8 @@ func (c *Car) drive() {
 		  c.path.currentState = ToDropOff
 	  }
     }
-  }else if c.path.currentPos.Distance(c.path.currentEdge.End.Pos) > MovementPerDrive {
-  	c.path.currentPos = c.path.currentPos.ProjectInDirection(MovementPerDrive, c.path.currentEdge.End.Pos)
+  }else if c.path.currentPos.Distance(c.path.currentEdge.End.Pos) > MovementPerFrame {
+  	c.path.currentPos = c.path.currentPos.ProjectInDirection(MovementPerFrame, c.path.currentEdge.End.Pos)
     //TODO: check for collision
   } else {
     c.path.currentPos = c.path.currentEdge.End.Pos

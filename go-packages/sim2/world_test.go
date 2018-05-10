@@ -7,6 +7,7 @@ type MockWorld struct {
 	getRandomEdgeStruct GetRandomEdgeStruct
 	closestEdgeAndCoordStruct ClosestEdgeAndCoordStruct
 	shortestpathStruct ShortestPathStruct
+	getEdgeStruct GetEdgeStruct
 }
 
 type GetRandomEdgeStruct struct {
@@ -21,6 +22,23 @@ func (mockWorldAPI *MockWorld) getRandomEdge() (edge Edge) {
 		return mockWorldAPI.getRandomEdgeStruct.function()
 	}
 	edge = mockWorldAPI.getRandomEdgeStruct.returnEdge
+	return
+}
+
+type GetEdgeStruct struct {
+	paramId uint
+	returnEdge Edge
+	function func() (Edge)
+	calls uint
+}
+
+func (mockWorldAPI *MockWorld) getEdge(id uint) (edge Edge) {
+	mockWorldAPI.getEdgeStruct.calls++
+	mockWorldAPI.getEdgeStruct.paramId = id
+	if mockWorldAPI.getEdgeStruct.function != nil {
+		return mockWorldAPI.getEdgeStruct.function()
+	}
+	edge = mockWorldAPI.getEdgeStruct.returnEdge
 	return
 }
 
