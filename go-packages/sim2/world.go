@@ -14,16 +14,16 @@ type CarInfo struct {
   Pos Coords
   Vel Coords  // with respect to current position, offset for a single frame
   Dir Coords  // unit vector with respect to current position
+  EdgeId uint
 }
 
 // World - struct to contain all relevat world information in simulation.
 type World struct {
   Graph *Digraph
-  CarStates map[uint]CarInfo
+  CarStates []CarInfo
   Fps float64
-
   numRegisteredCars uint  // Total count of registered cars
-  syncChans map[uint]chan bool  // Index by actor ID for channel to/from that actor
+  syncChans []chan bool  // Index by actor ID for channel to/from that actor
   recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
 }
@@ -32,17 +32,17 @@ type CarWorldInterface interface {
   getRandomEdge() (Edge)
   getVertex(id uint) (Vertex)
   closestEdgeAndCoord(queryPoint Coords) (Location)
-  ShortestPath(startVertID, endVertID uint) ([]Edge, float64)
+  shortestPath(startVertID, endVertID uint) ([]Edge, float64)
+  getCarInfos() ([]CarInfo)
+  getFps() (float64)
 }
 
 // NewWorld - Constructor for valid World object.
 func NewWorld() *World {
   w := new(World)
   w.Graph = NewDigraph()
-  w.CarStates = make(map[uint]CarInfo)
   w.Fps = float64(1)
   w.numRegisteredCars = 0
-  w.syncChans = make(map[uint]chan bool)
   // NOTE recvChan is nil until cars are registered
   // NOTE webChan is nil until registered
   return w
@@ -57,25 +57,21 @@ func GetWorldFromFile(fname string) (w *World) {
 
 // RegisterCar - If the car ID has not been taken, allocate new channels for the car ID and true OK.
 //   If the car ID is taken or World is unallocated, return nil channels and false OK value.
-func (w *World) RegisterCar(ID uint) (chan bool, *chan CarInfo, bool) {
+func (w *World) RegisterCar() (uint, chan bool, *chan CarInfo, bool) {
   // Check for invalid World
-  if w == nil || w.syncChans == nil {
-    return nil, nil, false
+  if w == nil {
+    return 0, nil, nil, false
   }
-
-  // Check for previous allocation
-  if _, ok := w.CarStates[ID]; ok {
-    return nil, nil, false
-  }
+  ID := w.numRegisteredCars
 
   w.numRegisteredCars++
   //fmt.Println("numRegisteredCars:", w.numRegisteredCars)
 
   // Allocate new channels for registered car
-  w.CarStates[ID] = CarInfo{ ID:ID }  // TODO: randomize/control car location on startup
-  w.syncChans[ID] = make(chan bool, 1)  // Buffer up to one output
+  w.CarStates = append(w.CarStates, CarInfo{ ID:ID }) // TODO: randomize/control car location on startup
+  w.syncChans = append(w.syncChans, make(chan bool, 1)) // Buffer up to one output
   w.recvChan = make(chan CarInfo, w.numRegisteredCars)  // Overwrite buffered allocation
-  return w.syncChans[ID], &w.recvChan, true
+  return ID, w.syncChans[ID], &w.recvChan, true
 }
 
 // TODO: an UnregisterCar func if necessary
@@ -135,7 +131,6 @@ func (w *World) RegisterWeb() (chan Message, bool) {
   return w.webChan, true
 }
 
-
 func (w *World) getRandomEdge() (Edge) {
   return w.Graph.getRandomEdge()
 }
@@ -148,6 +143,15 @@ func (w *World) closestEdgeAndCoord(queryPoint Coords) (Location) {
   return w.Graph.closestEdgeAndCoord(queryPoint)
 }
 
-func (w *World) ShortestPath(startVertID, endVertID uint) ([]Edge, float64) {
+func (w *World) shortestPath(startVertID, endVertID uint) ([]Edge, float64) {
  return w.Graph.ShortestPath(startVertID, endVertID)
 }
+
+func (w *World) getCarInfos() (newCarInfos []CarInfo) {
+  return w.CarStates
+}
+
+func (w *World) getFps() (float64) {
+  return w.Fps
+}
+

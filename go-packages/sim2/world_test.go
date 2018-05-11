@@ -68,7 +68,7 @@ type ShortestPathStruct struct {
 	calls uint
 }
 
-func (mockWorldAPI *MockWorld) ShortestPath(startVertID, endVertID uint) (edges []Edge, distance float64) {
+func (mockWorldAPI *MockWorld) shortestPath(startVertID, endVertID uint) (edges []Edge, distance float64) {
 	mockWorldAPI.shortestpathStruct.calls++
 	mockWorldAPI.shortestpathStruct.paramStartVertID = startVertID
 	mockWorldAPI.shortestpathStruct.paramEndVertID = endVertID

@@ -59,15 +59,19 @@ func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address strin
 	select {
 	case msg := <-ethApi.newRideEvent:
 		if msg.Raw.Index > ethApi.lastNewRequestIndex {
-			ethApi.lastNewRequestIndex  = msg.Raw.Index
 			addresses, err := ethApi.mrm.GetAvailableRides(nil)
 			if err != nil {
 				log.Println("could not get addresses from car: ", err)
 			}
-			s1 := rand.NewSource(time.Now().UnixNano())
-			r1 := rand.New(s1)
-			address = addresses[uint(r1.Int()%len(addresses))].String()
-			available = true
+			if len(addresses) > 0 {
+				ethApi.lastNewRequestIndex = msg.Raw.Index
+				s1 := rand.NewSource(time.Now().UnixNano())
+				r1 := rand.New(s1)
+				address = addresses[uint(r1.Int()%len(addresses))].String()
+				available = true
+			} else {
+				available = false
+			}
 		} else {
 			available = false
 		}
