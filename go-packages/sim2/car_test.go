@@ -64,7 +64,7 @@ func testRequestState(t *testing.T) {
 		return <-acceptRequestWaitChannel
 	}
 	car.requestState = None
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.requestState != Trying {
 		t.Errorf("Car request state did not switch to trying \n")
 	}
@@ -84,7 +84,7 @@ func testRequestState(t *testing.T) {
 		return <-acceptRequestWaitChannel
 	}
 	car.requestState = None
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.requestState != Trying {
 		t.Errorf("Car request state did not switch to trying \n")
 	}
@@ -105,7 +105,7 @@ func testRequestState(t *testing.T) {
 		return true
 	}
 	car.requestState = Fail
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.requestState != Trying {
 		t.Errorf("Car request state did not switch to trying \n")
 	}
@@ -123,7 +123,7 @@ func testRequestState(t *testing.T) {
 	mockEth.getLocationStruct.returnFrom = "0,0"
 	mockEth.getLocationStruct.returnTo = "1,1"
 	mockWorld.closestEdgeAndCoordStruct.returnLocation = Location{edge:Edge{Start:&Vertex{ID:1}}}
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if mockEth.getLocationStruct.calls != 1 {
 		t.Errorf("Did not query eth api to get locations \n")
 	}
@@ -149,7 +149,7 @@ func testPathState(t *testing.T) {
 	car.path.currentState = DrivingAtRandom
 	car.path.currentPos = car.path.currentEdge.End.Pos
 	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.path.currentEdge.ID != 1 {
 		t.Errorf("Car did not switch edges upon reaching \n")
 	}
@@ -173,7 +173,7 @@ func testPathState(t *testing.T) {
 	car.path.currentPos = car.path.currentEdge.End.Pos
 	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
 
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.path.currentState != ToDropOff {
 		t.Errorf("Car path state not switched to drop off \n")
 	}
@@ -184,7 +184,7 @@ func testPathState(t *testing.T) {
 	car.path.currentState = ToDropOff
 	car.path.currentPos = car.path.currentEdge.End.Pos
 	car.path.routeEdges = []Edge{{ID:1, Start:&Vertex{Pos:Coords{1,1}}, End:&Vertex{Pos:Coords{2,2}}}}
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.path.currentState != DrivingAtRandom {
 		t.Errorf("Car path state not switched to driving at random \n")
 	}
@@ -192,7 +192,7 @@ func testPathState(t *testing.T) {
 	// Test if current position is projected to end position by Movement per drive when distance is greater than movement per drive
 	reset()
 	originalCarPostion := car.path.currentPos
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	distanceMoved := originalCarPostion.Distance(car.path.currentPos)
 	if math.Abs(distanceMoved -MovementPerFrame) > 0.1 {
 		t.Errorf("Current position was not projected by movement per drive \n")
@@ -201,7 +201,7 @@ func testPathState(t *testing.T) {
 	// Test if current position is set to end position when distance is less than Movement per drive
 	reset()
 	car.path.currentEdge.End.Pos = Coords{X:0.1, Y:0.1}
-	car.drive()
+	car.driveOnCurrentEdgeTowards()
 	if car.path.currentPos != car.path.currentEdge.End.Pos {
 		t.Errorf("Current position not set to end position upon getting close enough \n")
 	}
