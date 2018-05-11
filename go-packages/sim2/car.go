@@ -63,10 +63,9 @@ func NewCar(id uint, w CarWorldInterface, ethApi EthApiInterface, sync chan bool
   c.requestState = None
 
   c.path.currentState = DrivingAtRandom
-  newEdge := c.world.getEdge(c.id)
-  c.path.currentPos = newEdge.Start.Pos
-  c.path.currentEdge = newEdge
-  c.path.routeEdges, _ = c.getShortestPathToEdge(newEdge)
+  c.path.currentPos = c.world.getVertex(id).Pos
+  c.path.currentEdge = c.world.getVertex(id).AdjEdges[0]
+  c.path.routeEdges, _ = c.getShortestPathToEdge(w.getRandomEdge())
   c.ethApi = ethApi
   return c
 }

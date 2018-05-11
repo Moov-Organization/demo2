@@ -24,16 +24,18 @@ func reset() {
 }
 
 func TestNewCar(t *testing.T) {
-	mockWorld.getEdgeStruct.returnEdge =
-		Edge{ID:0,
-			Start:&Vertex{Pos:Coords{0,0}},
-			End:&Vertex{Pos:Coords{1,1}}}
+	edge := Edge{ID:0,
+		Start:&Vertex{Pos:Coords{0,0}},
+		End:&Vertex{Pos:Coords{1,1}}}
+	mockWorld.getVertexStruct.returnVertex = *edge.Start
+	mockWorld.getVertexStruct.returnVertex.AdjEdges = append(mockWorld.getVertexStruct.returnVertex.AdjEdges, edge)
+	mockWorld.getRandomEdgeStruct.returnEdge = edge
 	var carID uint = 0
 	car = NewCar(carID, &mockWorld, &mockEth, syncChan, recvChan)
 	if car.id != carID {
 		t.Errorf("Car ID does not equal %d \n", carID)
 	}
-	if mockWorld.getEdgeStruct.paramId != carID {
+	if mockWorld.getVertexStruct.paramId != carID {
 		t.Errorf("Edge ID does not equal %d \n", carID)
 	}
 	if mockWorld.shortestpathStruct.calls != 1 {
