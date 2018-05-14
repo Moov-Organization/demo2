@@ -18,7 +18,7 @@ func main() {
 
   // Instantiate world
   world := sim2.GetWorldFromFile("maps/4by4.map")
-  world.Fps = float64(100)
+  world.Fps = float64(50)
 
   // Instantiate JSON web output
   webChan, ok := world.RegisterWeb()
@@ -50,7 +50,7 @@ func main() {
     web = sim2.NewTestChainWebSrv(webChan, testChain.RecvServer)
   }
   // Instantiate cars
-  numCars := uint(2)
+  numCars := uint(4)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
