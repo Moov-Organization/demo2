@@ -19,35 +19,23 @@ type CarInfo struct {
 
 // World - struct to contain all relevat world information in simulation.
 type World struct {
-  Graph *Digraph
-  CarStates []CarInfo
-  Fps float64
+  graph *Digraph
+  carStates []CarInfo
+  fps float64
   numRegisteredCars uint  // Total count of registered cars
   syncChans []chan []CarInfo  // Index by actor ID for channel to/from that actor
   recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
 }
 
-type CarWorldInterface interface {
-  getFps() (float64)
-  getNewDigraph() (*Digraph)
-}
-
 // NewWorld - Constructor for valid World object.
-func NewWorld() *World {
+func NewWorld(fps float64, graph *Digraph) *World {
   w := new(World)
-  w.Graph = NewDigraph()
-  w.Fps = float64(1)
+  w.graph = graph
+  w.fps = fps
   w.numRegisteredCars = 0
   // NOTE recvChan is nil until cars are registered
   // NOTE webChan is nil until registered
-  return w
-}
-
-// GetWorldFromFile - Populate underlying diggraph for roads on world.
-func GetWorldFromFile(fname string) (w *World) {
-  w = NewWorld()
-  w.Graph = GetDigraphFromFile(fname)
   return w
 }
 
@@ -64,7 +52,7 @@ func (w *World) RegisterCar() (uint, chan []CarInfo, *chan CarInfo, bool) {
   //fmt.Println("numRegisteredCars:", w.numRegisteredCars)
 
   // Allocate new channels for registered car
-  w.CarStates = append(w.CarStates, CarInfo{ ID:ID }) // TODO: randomize/control car location on startup
+  w.carStates = append(w.carStates, CarInfo{ ID:ID }) // TODO: randomize/control car location on startup
   w.syncChans = append(w.syncChans, make(chan []CarInfo, 1)) // Buffer up to one output
   w.recvChan = make(chan CarInfo, w.numRegisteredCars)  // Overwrite buffered allocation
   return ID, w.syncChans[ID], &w.recvChan, true
@@ -77,17 +65,17 @@ func (w *World) LoopWorld() {
   itercounter := uint64(0)
   for {
     //fmt.Println("Iteration", itercounter)
-    timer := time.NewTimer(time.Duration(1000/w.Fps) * time.Millisecond)
+    timer := time.NewTimer(time.Duration(1000/w.fps) * time.Millisecond)
 
     // Send out sync flag = true for each registered car
-    for ID := range w.CarStates {
-      cpy := make([]CarInfo, len(w.CarStates))
-      copy(cpy, w.CarStates)
+    for ID := range w.carStates {
+      cpy := make([]CarInfo, len(w.carStates))
+      copy(cpy, w.carStates)
       w.syncChans[ID] <- cpy
     }
 
     // Car coroutines should now process current world state
-    for idx, car := range w.CarStates {
+    for idx, car := range w.carStates {
       w.webChan <- Message{
         Type:"Car",
         ID:strconv.Itoa(int(idx)),
@@ -101,11 +89,7 @@ func (w *World) LoopWorld() {
     for carRecvCt := uint(0); carRecvCt < w.numRegisteredCars ; {
       data := <-w.recvChan
       // TODO: deep copy is safer here
-      //if data.Pos.Distance(w.CarStates[data.ID].Pos) > 5  {
-      //  fmt.Println(time.Now(), " wild ", data.ID, " current ", data.Pos, " previous ", w.CarStates[data.ID].Pos)
-      //}
-
-      w.CarStates[data.ID] = data
+      w.carStates[data.ID] = data
 
       carRecvCt++
       //fmt.Println("World got new data on index", data.ID, ":", data)
@@ -134,11 +118,4 @@ func (w *World) RegisterWeb() (chan Message, bool) {
   return w.webChan, true
 }
 
-func (w *World) getFps() (float64) {
-  return w.Fps
-}
-
-func (w * World) getNewDigraph() *Digraph {
-  return GetDigraphFromFile("maps/4by4.map")
-}
 

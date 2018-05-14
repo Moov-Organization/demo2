@@ -16,7 +16,6 @@ type Car struct {
   // TODO determine if Car needs any additional/public members
   id           uint
   path         Path
-  world        CarWorldInterface
   graph        *Digraph
   syncChan     chan []CarInfo
   sendChan     *chan CarInfo
@@ -69,10 +68,10 @@ type IntersectionContext struct {
 
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, w CarWorldInterface, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo) *Car {
+func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo) *Car {
   c := new(Car)
   c.id = id
-  c.world = w
+	c.graph = graph
   c.syncChan = sync
   c.sendChan = send
 	c.ethApi = ethApi
@@ -88,7 +87,7 @@ func NewCar(id uint, w CarWorldInterface, ethApi BlockchainInterface, sync chan 
 	if id == 3 {
 		id = 14
 	}
-	c.graph = w.getNewDigraph()
+
   c.path.pos = c.graph.Vertices[id].Pos
   c.path.edge = c.graph.Vertices[id].AdjEdges[0]
   c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
@@ -108,6 +107,7 @@ func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
 // CarLoop - Begin the car simulation execution loop
 func (c *Car) CarLoop() {
   for {
+  	//TODO pull out the current car's id in the next line
     c.path.otherCarInfo =  <-c.syncChan // Block waiting for next sync event
     c.drive()
     info := CarInfo{ID:c.id, Pos:c.path.pos, Vel:Coords{0,0}, Dir:c.path.edge.unitVector(), EdgeId:c.path.edge.ID }
