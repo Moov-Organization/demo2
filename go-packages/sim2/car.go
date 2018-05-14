@@ -27,15 +27,15 @@ type Path struct {
   dropOff      Location
   currentPos   Coords
   currentDir   Coords
-  currentEdge  Edge
+  currentEdge  *Edge
   currentState PathState
-  routeEdges   []Edge
+  routeEdges   []*Edge
   riderAddress string
 }
 
 type Location struct {
   intersect Coords
-  edge Edge
+  edge *Edge
 }
 
 type PathState int
@@ -122,7 +122,7 @@ func (c *Car) getLocations() (pickup Location, dropOff Location) {
   return
 }
 
-func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
+func (c *Car) getShortestPathToEdge(edge *Edge) (edges []*Edge, dist float64) {
   return c.world.ShortestPath(c.path.currentEdge.End.ID, edge.Start.ID)
 }
 
@@ -158,4 +158,3 @@ func (c *Car) drive() {
   }
   return
 }
-

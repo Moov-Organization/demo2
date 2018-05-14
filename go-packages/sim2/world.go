@@ -29,10 +29,10 @@ type World struct {
 }
 
 type CarWorldInterface interface {
-  getRandomEdge() (Edge)
+  getRandomEdge() (*Edge)
   getVertex(id uint) (Vertex)
   closestEdgeAndCoord(queryPoint Coords) (Location)
-  ShortestPath(startVertID, endVertID uint) ([]Edge, float64)
+  ShortestPath(startVertID, endVertID uint) ([]*Edge, float64)
 }
 
 // NewWorld - Constructor for valid World object.
@@ -137,7 +137,7 @@ func (w *World) RegisterWeb() (chan Message, bool) {
 }
 
 
-func (w *World) getRandomEdge() (Edge) {
+func (w *World) getRandomEdge() (*Edge) {
   return w.Graph.getRandomEdge()
 }
 
@@ -149,6 +149,12 @@ func (w *World) closestEdgeAndCoord(queryPoint Coords) (Location) {
   return w.Graph.closestEdgeAndCoord(queryPoint)
 }
 
-func (w *World) ShortestPath(startVertID, endVertID uint) ([]Edge, float64) {
-  return w.Graph.ShortestPath(startVertID, endVertID)
+func (w *World) ShortestPath(startVertID, endVertID uint) ([]*Edge, float64) {
+  edgeIDs, dist := w.Graph.ShortestPath(startVertID, endVertID)
+
+  edges := make([]*Edge, 0)
+  for _, edgeID := range edgeIDs {
+    edges = append(edges, w.Graph.Edges[edgeID])
+  }
+  return edges, dist
 }

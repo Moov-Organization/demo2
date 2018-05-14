@@ -257,7 +257,7 @@ func (g Digraph) closestEdgeAndCoord(queryPoint Coords) (location Location) {
 		if dist < shortestDistance {
 			shortestDistance = dist
 			location.intersect = coord
-			location.edge = *edge
+			location.edge = edge
 			//fmt.Print(" (new shortest: ", dist , " @", coord, ")")
 		}
 		//fmt.Println()
@@ -349,9 +349,9 @@ func (e *Edge) unitVector() (c Coords){
 	return
 }
 
-func (g Digraph) getRandomEdge() (edge Edge) {
+func (g Digraph) getRandomEdge() (edge *Edge) {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
-	edge = *g.Edges[uint(r1.Int() % len(g.Edges))]
+	edge = g.Edges[uint(r1.Int() % len(g.Edges))]
 	return
 }
