@@ -17,8 +17,8 @@ func main() {
   flag.Parse()
 
   // Instantiate world
-  world := sim2.GetWorldFromFile("maps/4by4.map")
-  world.Fps = float64(50)
+  graph := sim2.GetDigraphFromFile("maps/4by4.map")
+  world := sim2.NewWorld(50, graph)
 
   // Instantiate JSON web output
   webChan, ok := world.RegisterWeb()
@@ -58,15 +58,16 @@ func main() {
     if !ok {
       log.Fatalln("error: failed to register car")
     }
+		graph = sim2.GetDigraphFromFile("maps/4by4.map")
     if (!*testingFlagPtr) {
       scanner.Scan()
       scanner.Scan()
       carPrivateKey := scanner.Text()
       eth := sim2.NewEthApi(existingMrmAddress, carPrivateKey)
-      cars[i] = sim2.NewCar(id, world, eth, syncChan, updateChan)
+      cars[i] = sim2.NewCar(id, graph, eth, syncChan, updateChan)
     } else {
       testchainApi := testChain.RegisterBlockchainInteractor()
-      cars[i] = sim2.NewCar(id, world, testchainApi, syncChan, updateChan)
+      cars[i] = sim2.NewCar(id, graph, testchainApi, syncChan, updateChan)
     }
   }
 	if (*testingFlagPtr) {
