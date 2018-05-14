@@ -18,6 +18,8 @@ type Vertex struct {
   ID uint
   Pos Coords
   AdjEdges []Edge
+  intersection *Intersection
+  directionFromIntersection Direction
 }
 
 // Edge - struct for directed weighted edge in digraph.
@@ -28,10 +30,40 @@ type Edge struct {
   Weight float64
 }
 
+// The number of directions at an waitingFor
+const NumberOfDirections = 4
+
+type Intersection struct {
+	entries [NumberOfDirections]EntryInfo
+	intersectionType IntersectionType
+}
+
+// Entry Info - information about the entry to the waitingFor
+type EntryInfo struct {
+	present bool    // if there is an entry from the corresponding direction
+	vertex *Vertex  // the vertex corresponding to the entry
+}
+
+type Direction int
+const (
+	West   Direction = 0
+	South  Direction = 1
+	East   Direction = 2
+	North  Direction = 3
+)
+
+type IntersectionType int
+const (
+	NoIntersection  IntersectionType = 0
+	StopSign        IntersectionType = 1
+	StopLight       IntersectionType = 2
+)
+
 // Digraph - struct for Digraph object.
 type Digraph struct {
   Vertices map[uint]*Vertex  // map vertex ID to vertex reference
   Edges map[uint]*Edge  // map edge ID to edge reference
+  Intersections []*Intersection
 }
 
 // NewDigraph - Constructor for valid Digraph object.
@@ -56,7 +88,11 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
 
   // Scan input file line by line
   for scanner.Scan() {
-    line := strings.Split(scanner.Text()," ")
+  	text := scanner.Text()
+  	if text == "STOPSIGNS" {
+  		break
+		}
+    line := strings.Split(text," ")
 
     // Fetch id of Vertex described on this line
 		idRead, _ := strconv.Atoi(line[0])
@@ -68,11 +104,10 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
     }
     vert := d.Vertices[id]
     vert.ID = id
-
     // Parse input Vertex coordinates
-    x, y := splitCSV(line[1])
-    vert.Pos.X = x
-    vert.Pos.Y = y
+    numbers := splitLine(line[1], ",",2)
+    vert.Pos.X = numbers[0]
+    vert.Pos.Y = numbers[1]
 
     // Parse adjacent vertices
 		for _, point := range line[2:] {
@@ -99,28 +134,44 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
     }
   }
 
+	for scanner.Scan() {
+		text := scanner.Text()
+		numbers := splitLine(text," ", 4)
+		var stopSign Intersection
+		stopSign.intersectionType = StopSign
+		for direction, number := range numbers {
+			if number >= 0 {
+				stopSign.entries[direction].present = true
+				stopSign.entries[direction].vertex = d.Vertices[uint(number)]
+				d.Vertices[uint(number)].intersection = &stopSign
+				d.Vertices[uint(number)].directionFromIntersection = Direction(direction)
+			}
+		}
+		d.Intersections = append(d.Intersections, &stopSign)
+
+	}
   return d
 }
 
 // splitCSV - Split a CSV pair into constituent values.
-func splitCSV(line string) (float64, float64) {
-	numbers := strings.Split(line,",")
-	if len(numbers) != 2 {
-		log.Fatal("Line does not have format <number1>, <number2> ")
+func splitLine(line string, separator string, length int) (numbers []float64) {
+	numbersInString := strings.Split(line, separator)
+	if len(numbersInString) != length {
+		log.Fatalf("Line does not have %d numbers, it has %d numbers", length, len(numbers))
 	}
-	numberOne, err := strconv.Atoi(numbers[0])
-	if err != nil {
-		log.Fatal("Line does not have format <number1>, <number2> ")
+
+	for _, numberInString := range numbersInString {
+		number, err := strconv.Atoi(numberInString)
+		if err != nil {
+			log.Fatalf("%s in %s is not a number", numberInString, numbersInString)
+		}
+		numbers = append(numbers, float64(number))
 	}
-	numberTwo, err := strconv.Atoi(numbers[1])
-	if err != nil {
-		log.Fatal("Line does not have format <number1>, <number2> ")
-	}
-	return float64(numberOne), float64(numberTwo)
+	return
 }
 
 // ShortestPath - solve for the shortest deighted directional path from start to end vertex.
-func (g Digraph) ShortestPath(startVertID, endVertID uint) (edges []Edge, dist float64) {
+func (g Digraph) shortestPath(startVertID, endVertID uint) (edges []Edge, dist float64) {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
 	adjEdges := g.Vertices[startVertID].AdjEdges
@@ -229,7 +280,7 @@ func (e *Edge) checkIntersect(query Coords) (intersect Coords, distance float64)
 			intersect = e.End.Pos
 			distance = distance2
 		}
-	} else {  // In perpendicular region; find intersection on Edge
+	} else {  // In perpendicular region; find waitingFor on Edge
 		// Check for straight lines to ease calculations
 		if (x1 == x2) {
 			intersect.X = math.Round(x1)
@@ -262,6 +313,8 @@ func (g Digraph) getRandomEdge() (edge Edge) {
 	edge = *g.Edges[uint(r1.Int() % len(g.Edges))]
 	return
 }
+
+
 
 
 
