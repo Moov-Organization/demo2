@@ -19,7 +19,7 @@ contract MoovRideManager {
   }
 
   // Mapping from each rider to a ride
-  mapping(address => ride) private rides;
+  mapping(address => ride) public rides;
 
   // Array to keep track of rides that are available to be picked up by cars
   address[] private availableRides;
@@ -76,22 +76,6 @@ contract MoovRideManager {
     rides[riderAddress].rideStatus = RideStatus.AVAILABLE;
     rides[riderAddress].amount = 0;
     emit RideFinished(msg.sender, rides[riderAddress].carAddress);
-  }
-
-  function getBalance(address addr) public view returns(uint balance) {
-    return rides[addr].amount;
-  }
-
-  function getCarAddress(address addr) public view returns(address) {
-    return rides[addr].carAddress;
-  }
-
-  function getRideStatus(address addr) public view returns(RideStatus) {
-    return rides[addr].rideStatus;
-  }
-
-  function getLocations(address addr) public view returns(string, string) {
-    return (rides[addr].from, rides[msg.sender].to);
   }
 
   function getAvailableRides() public view returns(address[]) {

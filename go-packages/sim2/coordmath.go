@@ -12,6 +12,11 @@ type Coords struct {
   Y float64
 }
 
+// Equal - Calculate the distance between two coordinates.
+func (c1 Coords) Equals(c2 Coords) bool {
+	return math.Abs(c2.X - c1.X) < 0.01 && math.Abs(c2.Y - c1.Y) < 0.01
+}
+
 // Distance - Calculate the distance between two coordinates.
 func (c1 Coords) Distance(c2 Coords) float64 {
 	sqdx := math.Pow(c2.X - c1.X, 2)
