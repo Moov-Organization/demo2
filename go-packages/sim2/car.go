@@ -9,7 +9,7 @@ import (
 // car - Describes routine hooks and logic for Cars within a World simulation
 
 // The distance the car should move every drive call
-const MovementPerFrame = 0.5
+const MovementPerFrame = 2
 
 // Car - struct for all info needed to manage a Car within a World simulation.
 type Car struct {
@@ -17,23 +17,26 @@ type Car struct {
   id           uint
   path         Path
   world        CarWorldInterface
-  syncChan     chan bool
+  graph        *Digraph
+  syncChan     chan []CarInfo
   sendChan     *chan CarInfo
   ethApi       BlockchainInterface
   requestState RequestState
 }
 
 type Path struct {
-  pickUp       Location
-  dropOff      Location
-  currentPos   Coords
-  currentEdge  Edge
-  currentState PathState
-	nextState    PathState
-  routeEdges   []Edge
-  riderAddress string
-  reachedEdgeEnd bool
-	stopAlarm    <-chan time.Time
+  pickUp             Location
+  dropOff            Location
+  pos                Coords
+  edge               Edge
+  state              PathState
+	nextState          PathState
+  routeEdges         []Edge
+  riderAddress       string
+  justReachedEdgeEnd bool
+	stopAlarm          <-chan time.Time
+	waitingFor         IntersectionContext
+	otherCarInfo			 []CarInfo
 }
 
 type Location struct {
@@ -58,51 +61,62 @@ const (
   Fail    RequestState = 3
 )
 
-type ReachedState int
-const (
-  NotReached ReachedState = 0
-  Reached    ReachedState = 1
-)
+type IntersectionContext struct {
+	stoppedCars   []CarInfo
+	movingCars    []CarInfo
+	//lastCarSince  time.Time
+}
+
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, w CarWorldInterface, ethApi BlockchainInterface, sync chan bool, send *chan CarInfo) *Car {
+func NewCar(id uint, w CarWorldInterface, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo) *Car {
   c := new(Car)
   c.id = id
   c.world = w
   c.syncChan = sync
   c.sendChan = send
 	c.ethApi = ethApi
-	if id == 1 {
-		id = 2
+	if id == 0 {
+		id = 27
 	}
-  c.path.currentPos = c.world.getVertex(id).Pos
-  c.path.currentEdge = c.world.getVertex(id).AdjEdges[0]
-  c.path.routeEdges, _ = c.getShortestPathToEdge(w.getRandomEdge())
+	if id == 1 {
+		id = 20
+	}
+	if id == 2 {
+		id = 5
+	}
+	if id == 3 {
+		id = 14
+	}
+	c.graph = w.getNewDigraph()
+  c.path.pos = c.graph.Vertices[id].Pos
+  c.path.edge = c.graph.Vertices[id].AdjEdges[0]
+  c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
   return c
 }
 
 func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
-	edges, dist = c.world.shortestPath(c.path.currentEdge.End.ID, edge.Start.ID)
-	fmt.Print("Car ", c.id," new path ")
-	for _ , edge := range edges {
-		fmt.Print(edge.End.ID," ")
-	}
-	fmt.Println()
+	edges, dist = c.graph.shortestPath(c.path.edge.End.ID, edge.Start.ID)
+	//fmt.Print("Car ", c.id," new path ")
+	//for _ , edge := range edges {
+	//	fmt.Print(edge.End.ID," ")
+	//}
+	//fmt.Println()
 	return
 }
 
 // CarLoop - Begin the car simulation execution loop
 func (c *Car) CarLoop() {
   for {
-    <-c.syncChan // Block waiting for next sync event
+    c.path.otherCarInfo =  <-c.syncChan // Block waiting for next sync event
     c.drive()
-    info := CarInfo{ID:c.id, Pos:c.path.currentPos, Vel:Coords{0,0}, Dir:c.path.currentEdge.unitVector(), EdgeId:c.path.currentEdge.ID }
+    info := CarInfo{ID:c.id, Pos:c.path.pos, Vel:Coords{0,0}, Dir:c.path.edge.unitVector(), EdgeId:c.path.edge.ID }
     *c.sendChan <- info
   }
 }
 
 func (c *Car) drive () {
-  switch c.path.currentState {
+  switch c.path.state {
   case DrivingAtRandom:
     c.checkRequestState()
   	c.driveToDestination()
@@ -111,15 +125,15 @@ func (c *Car) drive () {
   case ToDropOff:
 		c.driveToDestination()
 	case Stopped:
-		select {
-			case <-c.path.stopAlarm:
-				c.path.currentState = c.path.nextState
-			default:
-		}
+		//select {
+		//	case <-c.path.stopAlarm:
+		//		c.allClearToCrossIntersection()
+		//	default:
+		//}
   case Waiting:
 		select {
 		case <-c.path.stopAlarm:
-			c.path.currentState = c.path.nextState
+			c.path.state = c.path.nextState
 		default:
 		}
 
@@ -127,71 +141,156 @@ func (c *Car) drive () {
 }
 
 func (c *Car) driveToDestination() {
-	if !c.path.atLastEdge() {
-		if c.driveOnCurrentEdgeTowards(c.path.currentEdge.End.Pos) == Reached {
-			if c.allClearToSwitchToNextEdge() {
-				c.path.currentEdge = c.path.routeEdges[0]
-				c.path.routeEdges = c.path.routeEdges[1:]
-				fmt.Println("Car",c.id," To ",c.path.currentEdge.End.ID)
-			}
-		}
+	if c.path.destinationEdgeNotReached() {
+		c.keepDrivingOnRoute()
 	} else {
-		switch c.path.currentState {
+		switch c.path.state {
 		case DrivingAtRandom:
-			c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
-			c.path.currentState = DrivingAtRandom
+			c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
+			c.path.state = DrivingAtRandom
 		case ToPickUp:
 			//if c.driveOnCurrentEdgeTowards(c.path.pickUp.intersect) == Reached {
-			if c.driveOnCurrentEdgeTowards(c.path.currentEdge.End.Pos) == Reached {
+			if c.driveOnCurrentEdgeTowards(c.path.edge.End.Pos)  {
 				fmt.Println("Car",c.id," Reached Pick Up, To Drop off")
 				c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
-				c.path.currentState = Waiting
+				c.path.state = Waiting
 				c.path.nextState = ToDropOff
-				c.path.stopAlarm = time.After(time.Second * 2)
-				c.path.reachedEdgeEnd = false
+				c.path.stopAlarm = time.After(time.Second * 1)
 			}
 		case ToDropOff:
 			//if c.driveOnCurrentEdgeTowards(c.path.dropOff.intersect) == Reached {
-			if c.driveOnCurrentEdgeTowards(c.path.currentEdge.End.Pos) == Reached {
+			if c.driveOnCurrentEdgeTowards(c.path.edge.End.Pos) {
 				fmt.Println("Car",c.id," Reached Drop off, back to Random")
-				c.path.routeEdges, _ = c.getShortestPathToEdge(c.world.getRandomEdge())
-				c.path.currentState = Waiting
+				c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
+				c.path.state = Waiting
 				c.path.nextState = DrivingAtRandom
 				c.path.stopAlarm = time.After(time.Second * 2)
-				c.path.reachedEdgeEnd = false
 			}
 		}
 	}
 }
 
-func (p *Path) atLastEdge() (bool) {
-	return len(p.routeEdges) == 1
+func (p *Path) destinationEdgeNotReached() (bool) {
+	return len(p.routeEdges) != 1
 }
 
-func (c *Car) driveOnCurrentEdgeTowards(endPos Coords) (ReachedState) {
-	if c.path.currentPos == endPos {
-		return Reached
-	}
-	if c.path.currentPos.Distance(endPos) > MovementPerFrame {
-		if !c.collisionAhead() {
-			c.path.currentPos = c.path.currentPos.ProjectInDirection(MovementPerFrame, c.path.currentEdge.End.Pos)
-		}
-		return NotReached
+func (p *Path) loadNextEdge() () {
+	p.edge = p.routeEdges[0]
+	p.routeEdges = p.routeEdges[1:]
+	p.justReachedEdgeEnd = false;
+}
+
+func (c *Car) driveOnCurrentEdgeTowards(endPos Coords) (bool) {
+	if c.path.pos == endPos {
+		return true
+	}else if c.path.pos.Distance(endPos) < MovementPerFrame {
+		c.path.pos = endPos
+		return true
 	} else {
-		c.path.currentPos = endPos
-		c.path.reachedEdgeEnd = true
-		return Reached
+		if !c.collisionAhead() {
+			c.path.pos = c.path.pos.ProjectInDirection(MovementPerFrame, c.path.edge.End.Pos)
+		}
+		return false
 	}
 }
+
+func (c *Car) keepDrivingOnRoute() () {
+
+	if c.path.pos == c.path.edge.End.Pos {
+		if c.path.edge.End.intersection != nil {
+			switch c.path.edge.End.intersection.intersectionType {
+			case StopSign:
+				if c.path.justReachedEdgeEnd { // Just reached waitingFor
+					//fmt.Println("Car ", c.id," Reached Stop Sign")
+					c.saveStopSignInfo()
+					c.path.nextState = c.path.state
+					c.path.state = Waiting
+					c.path.stopAlarm = time.After(time.Second * 2)
+					c.path.justReachedEdgeEnd = false
+				} else if c.clearToPassStopSign() {
+					//fmt.Println("Car ", c.id," clear to cross intersection")
+					c.path.loadNextEdge()
+				} else {
+					c.path.nextState = c.path.state
+					c.path.state = Waiting
+					c.path.stopAlarm = time.After(time.Millisecond * 500)
+				}
+
+			case StopLight:
+				//if c.clearToPassStopLight() {
+				//	c.path.loadNextEdge()
+				//}
+			}
+		} else {
+			c.path.loadNextEdge()
+		}
+	}	else if c.path.pos.Distance(c.path.edge.End.Pos) > MovementPerFrame {
+		if !c.collisionAhead() {
+			c.path.pos = c.path.pos.ProjectInDirection(MovementPerFrame, c.path.edge.End.Pos)
+		}
+	} else {
+		c.path.pos = c.path.edge.End.Pos
+		c.path.justReachedEdgeEnd = true
+	}
+}
+
+func (c *Car) saveStopSignInfo() {
+	otherCars := removeCar(c.path.otherCarInfo, c.id)
+	c.path.waitingFor.movingCars = c.getCarsMovingInIntersection(otherCars)
+	c.path.waitingFor.stoppedCars = c.getCarsStoppedAtIntersection(otherCars)
+}
+
+func (c *Car) clearToPassStopSign() (clear bool) {
+	clear = true
+	otherCars := removeCar(c.path.otherCarInfo, c.id)
+
+	currentlyMovingCars := c.getCarsMovingInIntersection(otherCars)
+	for _, alreadyMovingCar := range c.path.waitingFor.movingCars {
+		if carIsPresent(currentlyMovingCars, alreadyMovingCar.ID) {
+			fmt.Println("Car ", c.id," waiting on car ", alreadyMovingCar.ID," to finish crossing")
+			clear = false
+		} else {
+			c.path.waitingFor.movingCars = removeCar(c.path.waitingFor.movingCars, alreadyMovingCar.ID)
+		}
+	}
+
+	currentlyStoppedCars := c.getCarsStoppedAtIntersection(otherCars)
+	for _, alreadyStoppedCar := range c.path.waitingFor.stoppedCars {
+		if carIsPresent(currentlyStoppedCars, alreadyStoppedCar.ID) {
+			fmt.Println("Car ", c.id," waiting on car ", alreadyStoppedCar.ID," to start crossing ")
+			clear = false
+		} else {
+			c.path.waitingFor.stoppedCars = removeCar(c.path.waitingFor.stoppedCars, alreadyStoppedCar.ID)
+			if carIsPresent(currentlyMovingCars, alreadyStoppedCar.ID) {
+				fmt.Println("Car ", c.id," waiting on car ", alreadyStoppedCar.ID," to finish crossing")
+				c.path.waitingFor.movingCars = append(c.path.waitingFor.movingCars, alreadyStoppedCar)
+				clear = false
+			} else {
+				// Good to go
+			}
+		}
+	}
+
+	//TODO break deadlocks if cars arrive at the same time
+	//if len(c.path.waitingFor.movingCars) == 0 && len(c.path.waitingFor.stoppedCars) == 1 {
+	//	if time.Now().Sub(c.path.waitingFor.lastCarSince) > time.Second * 10 {
+	//		//c.path.waitingFor.stoppedCars = []CarInfo{}
+	//		//clear = true
+	//		fmt.Println("HERE")
+	//	}
+	//}
+	return
+}
+
 
 func (c *Car) collisionAhead() bool {
-	carInfos := c.world.getCarInfos()
+	carInfos := removeCar(c.path.otherCarInfo, c.id)
 	//fmt.Printf("car %d info address %p \n", c.id, &carInfos)
-	for otherCarId, otherCarInfo := range carInfos {
-		if uint(otherCarId) != c.id && otherCarInfo.EdgeId == c.path.currentEdge.ID {
-			edgeEndPos := c.path.currentEdge.End.Pos
+	for _, otherCarInfo := range carInfos {
+		if otherCarInfo.ID != c.id && otherCarInfo.EdgeId == c.path.edge.ID {
+			edgeEndPos := c.path.edge.End.Pos
 			otherCarDistanceToEdge := otherCarInfo.Pos.Distance(edgeEndPos)
-			thisCarDistanceToEdge := c.path.currentPos.Distance(edgeEndPos)
+			thisCarDistanceToEdge := c.path.pos.Distance(edgeEndPos)
 			distanceBetweenCars := thisCarDistanceToEdge - otherCarDistanceToEdge
 			if distanceBetweenCars > 0 && distanceBetweenCars < 100 {
 				return true
@@ -199,19 +298,6 @@ func (c *Car) collisionAhead() bool {
 		}
 	}
 	return false
-}
-
-func (c *Car) allClearToSwitchToNextEdge() (proceed bool) {
-	if c.path.reachedEdgeEnd && len(c.path.currentEdge.End.AdjEdges) > 1{
-		c.path.nextState = c.path.currentState
-		c.path.currentState = Stopped
-		c.path.stopAlarm = time.After(time.Second * 2)
-		c.path.reachedEdgeEnd = false
-		proceed = false
-	} else {
-		proceed = true
-	}
-	return
 }
 
 func (c *Car) checkRequestState() {
@@ -228,7 +314,7 @@ func (c *Car) checkRequestState() {
 			fmt.Println("Car",c.id," Got the Ride, To Pick Up")
 			c.path.pickUp, c.path.dropOff = c.getLocations()
 			c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.pickUp.edge)
-			c.path.currentState = ToPickUp
+			c.path.state = ToPickUp
 			c.requestState = None
 		}
 	}
@@ -246,11 +332,60 @@ func (c *Car) tryToAcceptRequest(address string) {
 }
 
 func (c *Car) getLocations() (pickup Location, dropOff Location) {
+	//TODO: recover from improperly formatted locations
 	from, to := c.ethApi.GetLocations(c.path.riderAddress)
 	fmt.Println("Car",c.id," locations ",from," ", to)
-	x, y := splitCSV(from)
-	pickup = c.world.closestEdgeAndCoord(Coords{x,y})
-	x, y = splitCSV(to)
-	dropOff = c.world.closestEdgeAndCoord(Coords{x,y})
+	numbers := splitLine(from, ",", 2)
+	pickup = c.graph.closestEdgeAndCoord(Coords{numbers[0],numbers[1]})
+	numbers = splitLine(to, ",", 2)
+	dropOff = c.graph.closestEdgeAndCoord(Coords{numbers[0],numbers[1]})
+	return
+}
+
+func removeCar(cars []CarInfo, blackSheep uint) ([]CarInfo) {
+	for i, car := range cars {
+		if car.ID == blackSheep {
+			return append(cars[:i], cars[i+1:]...)
+		}
+	}
+	return cars
+}
+
+func carIsPresent(cars []CarInfo, blackSheep uint) (bool) {
+	for _, car := range cars {
+		if car.ID == blackSheep {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Car) getCarsStoppedAtIntersection(otherCars []CarInfo) (stoppedCars []CarInfo) {
+	for _, otherCarInfo := range otherCars {
+		entries := c.path.edge.End.intersection.entries
+		for _, intersectionEntry := range entries {
+			if intersectionEntry.present && intersectionEntry.vertex.Pos == otherCarInfo.Pos {
+				stoppedCars = append(stoppedCars, otherCarInfo)
+			}
+		}
+	}
+	return
+}
+
+func (c *Car) getCarsMovingInIntersection(otherCars []CarInfo) (movingCars []CarInfo) {
+	for _, otherCarInfo := range otherCars {
+		entries := c.path.edge.End.intersection.entries
+		for _, intersectionEntry := range entries {
+			if intersectionEntry.present {
+				for _, edge := range intersectionEntry.vertex.AdjEdges {
+					if edge.ID == otherCarInfo.EdgeId {
+						movingCars = append(movingCars, otherCarInfo)
+					}else if edge.End.AdjEdges[0].End.ID >= 32 && edge.End.AdjEdges[0].End.ID == otherCarInfo.EdgeId { //Hack to include edge
+						movingCars = append(movingCars, otherCarInfo)
+					}
+				}
+			}
+		}
+	}
 	return
 }

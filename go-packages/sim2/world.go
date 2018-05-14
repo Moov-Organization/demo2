@@ -23,18 +23,14 @@ type World struct {
   CarStates []CarInfo
   Fps float64
   numRegisteredCars uint  // Total count of registered cars
-  syncChans []chan bool  // Index by actor ID for channel to/from that actor
+  syncChans []chan []CarInfo  // Index by actor ID for channel to/from that actor
   recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
 }
 
 type CarWorldInterface interface {
-  getRandomEdge() (Edge)
-  getVertex(id uint) (Vertex)
-  closestEdgeAndCoord(queryPoint Coords) (Location)
-  shortestPath(startVertID, endVertID uint) ([]Edge, float64)
-  getCarInfos() ([]CarInfo)
   getFps() (float64)
+  getNewDigraph() (*Digraph)
 }
 
 // NewWorld - Constructor for valid World object.
@@ -57,7 +53,7 @@ func GetWorldFromFile(fname string) (w *World) {
 
 // RegisterCar - If the car ID has not been taken, allocate new channels for the car ID and true OK.
 //   If the car ID is taken or World is unallocated, return nil channels and false OK value.
-func (w *World) RegisterCar() (uint, chan bool, *chan CarInfo, bool) {
+func (w *World) RegisterCar() (uint, chan []CarInfo, *chan CarInfo, bool) {
   // Check for invalid World
   if w == nil {
     return 0, nil, nil, false
@@ -69,7 +65,7 @@ func (w *World) RegisterCar() (uint, chan bool, *chan CarInfo, bool) {
 
   // Allocate new channels for registered car
   w.CarStates = append(w.CarStates, CarInfo{ ID:ID }) // TODO: randomize/control car location on startup
-  w.syncChans = append(w.syncChans, make(chan bool, 1)) // Buffer up to one output
+  w.syncChans = append(w.syncChans, make(chan []CarInfo, 1)) // Buffer up to one output
   w.recvChan = make(chan CarInfo, w.numRegisteredCars)  // Overwrite buffered allocation
   return ID, w.syncChans[ID], &w.recvChan, true
 }
@@ -85,7 +81,9 @@ func (w *World) LoopWorld() {
 
     // Send out sync flag = true for each registered car
     for ID := range w.CarStates {
-      w.syncChans[ID] <- true
+      cpy := make([]CarInfo, len(w.CarStates))
+      copy(cpy, w.CarStates)
+      w.syncChans[ID] <- cpy
     }
 
     // Car coroutines should now process current world state
@@ -103,7 +101,12 @@ func (w *World) LoopWorld() {
     for carRecvCt := uint(0); carRecvCt < w.numRegisteredCars ; {
       data := <-w.recvChan
       // TODO: deep copy is safer here
+      //if data.Pos.Distance(w.CarStates[data.ID].Pos) > 5  {
+      //  fmt.Println(time.Now(), " wild ", data.ID, " current ", data.Pos, " previous ", w.CarStates[data.ID].Pos)
+      //}
+
       w.CarStates[data.ID] = data
+
       carRecvCt++
       //fmt.Println("World got new data on index", data.ID, ":", data)
     }
@@ -131,27 +134,11 @@ func (w *World) RegisterWeb() (chan Message, bool) {
   return w.webChan, true
 }
 
-func (w *World) getRandomEdge() (Edge) {
-  return w.Graph.getRandomEdge()
-}
-
-func (w *World) getVertex(id uint) (Vertex) {
-  return *w.Graph.Vertices[id]
-}
-
-func (w *World) closestEdgeAndCoord(queryPoint Coords) (Location) {
-  return w.Graph.closestEdgeAndCoord(queryPoint)
-}
-
-func (w *World) shortestPath(startVertID, endVertID uint) ([]Edge, float64) {
- return w.Graph.ShortestPath(startVertID, endVertID)
-}
-
-func (w *World) getCarInfos() (newCarInfos []CarInfo) {
-  return w.CarStates
-}
-
 func (w *World) getFps() (float64) {
   return w.Fps
+}
+
+func (w * World) getNewDigraph() *Digraph {
+  return GetDigraphFromFile("maps/4by4.map")
 }
 
