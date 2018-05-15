@@ -21,7 +21,7 @@ type EthAPI struct {
 	lastNewRequestIndex uint
 }
 
-type EthApiInterface interface {
+type BlockchainInterface interface {
 	GetRideAddressIfAvailable() (available bool, address string)
 	AcceptRequest(address string) (status bool)
 	GetLocations(address string) (from string, to string)
