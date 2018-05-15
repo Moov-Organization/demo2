@@ -12,6 +12,10 @@ div#Map {
 	border: 1px solid;
 }
 
+div#eth-interface {
+  visibility: hidden;
+}
+
 div#Cars {
 	position: absolute;
     top: -55px ;

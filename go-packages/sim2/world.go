@@ -40,7 +40,6 @@ func NewWorld() *World {
   w := new(World)
   w.Graph = NewDigraph()
   w.CarStates = make(map[uint]CarInfo)
-
   w.Fps = float64(1)
   w.numRegisteredCars = 0
   w.syncChans = make(map[uint]chan bool)
