@@ -75,32 +75,22 @@ func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []Car
   c.syncChan = sync
   c.sendChan = send
 	c.ethApi = ethApi
-	if id == 0 {
-		id = 27
-	}
-	if id == 1 {
-		id = 20
-	}
-	if id == 2 {
-		id = 5
-	}
-	if id == 3 {
-		id = 14
-	}
 
   c.path.pos = c.graph.Vertices[id].Pos
-  c.path.edge = c.graph.Vertices[id].AdjEdges[0]
+  c.path.edge = *c.graph.Vertices[id].AdjEdges[0]
+  //TODO deal with random edge equals current edge
   c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
+
   return c
 }
 
 func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
-	edges, dist = c.graph.shortestPath(c.path.edge.End.ID, edge.Start.ID)
-	//fmt.Print("Car ", c.id," new path ")
-	//for _ , edge := range edges {
-	//	fmt.Print(edge.End.ID," ")
-	//}
-	//fmt.Println()
+	edges, dist = c.graph.shortestPath(c.path.edge.End.ID, edge.End.ID)
+	fmt.Print("Car ", c.id," new path ")
+	for _ , edge := range edges {
+		fmt.Print(edge.End.ID," ")
+	}
+	fmt.Println()
 	return
 }
 
@@ -141,7 +131,7 @@ func (c *Car) drive () {
 }
 
 func (c *Car) driveToDestination() {
-	if c.path.destinationEdgeNotReached() {
+	if !c.path.destinationEdgeReached() {
 		c.keepDrivingOnRoute()
 	} else {
 		switch c.path.state {
@@ -149,29 +139,27 @@ func (c *Car) driveToDestination() {
 			c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
 			c.path.state = DrivingAtRandom
 		case ToPickUp:
-			//if c.driveOnCurrentEdgeTowards(c.path.pickUp.intersect) == Reached {
-			if c.driveOnCurrentEdgeTowards(c.path.edge.End.Pos)  {
+			if c.driveOnCurrentEdgeTowards(c.path.pickUp.intersect) {
 				fmt.Println("Car",c.id," Reached Pick Up, To Drop off")
 				c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
 				c.path.state = Waiting
 				c.path.nextState = ToDropOff
-				c.path.stopAlarm = time.After(time.Second * 1)
+				c.path.stopAlarm = time.After(time.Second * 5)
 			}
 		case ToDropOff:
-			//if c.driveOnCurrentEdgeTowards(c.path.dropOff.intersect) == Reached {
-			if c.driveOnCurrentEdgeTowards(c.path.edge.End.Pos) {
+			if c.driveOnCurrentEdgeTowards(c.path.dropOff.intersect) {
 				fmt.Println("Car",c.id," Reached Drop off, back to Random")
 				c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
 				c.path.state = Waiting
 				c.path.nextState = DrivingAtRandom
-				c.path.stopAlarm = time.After(time.Second * 2)
+				c.path.stopAlarm = time.After(time.Second * 5)
 			}
 		}
 	}
 }
 
-func (p *Path) destinationEdgeNotReached() (bool) {
-	return len(p.routeEdges) != 1
+func (p *Path) destinationEdgeReached() (bool) {
+	return len(p.routeEdges) == 0
 }
 
 func (p *Path) loadNextEdge() () {
@@ -337,7 +325,9 @@ func (c *Car) getLocations() (pickup Location, dropOff Location) {
 	fmt.Println("Car",c.id," locations ",from," ", to)
 	numbers := splitLine(from, ",", 2)
 	pickup = c.graph.closestEdgeAndCoord(Coords{numbers[0],numbers[1]})
+	fmt.Println("Pick Up", pickup.edge.Start.ID, " ", pickup.edge.End.ID)
 	numbers = splitLine(to, ",", 2)
+	fmt.Println("Pick Up", pickup.edge.Start.ID, " ", pickup.edge.End.ID)
 	dropOff = c.graph.closestEdgeAndCoord(Coords{numbers[0],numbers[1]})
 	return
 }
@@ -380,7 +370,7 @@ func (c *Car) getCarsMovingInIntersection(otherCars []CarInfo) (movingCars []Car
 				for _, edge := range intersectionEntry.vertex.AdjEdges {
 					if edge.ID == otherCarInfo.EdgeId {
 						movingCars = append(movingCars, otherCarInfo)
-					}else if edge.End.AdjEdges[0].End.ID >= 32 && edge.End.AdjEdges[0].End.ID == otherCarInfo.EdgeId { //Hack to include edge
+					}else if edge.End.AdjEdges[0].Start.ID >= 32 && edge.End.AdjEdges[0].ID == otherCarInfo.EdgeId { //Hack to include edge
 						movingCars = append(movingCars, otherCarInfo)
 					}
 				}

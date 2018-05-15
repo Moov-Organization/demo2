@@ -50,7 +50,7 @@ func main() {
     web = sim2.NewTestChainWebSrv(webChan, testChain.RecvServer)
   }
   // Instantiate cars
-  numCars := uint(4)
+  numCars := uint(1)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
