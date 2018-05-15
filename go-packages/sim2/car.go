@@ -18,7 +18,7 @@ type Car struct {
   world        CarWorldInterface
   syncChan     chan bool
   sendChan     *chan CarInfo
-  ethApi       EthApiInterface
+  ethApi       BlockchainInterface
   requestState RequestState
 }
 
@@ -54,7 +54,7 @@ const (
 )
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, w CarWorldInterface, ethApi EthApiInterface, sync chan bool, send *chan CarInfo) *Car {
+func NewCar(id uint, w CarWorldInterface, ethApi BlockchainInterface, sync chan bool, send *chan CarInfo) *Car {
   c := new(Car)
   c.id = id
   c.world = w
