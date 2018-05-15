@@ -69,7 +69,9 @@ func main() {
       cars[i] = sim2.NewCar(i, world, testchainApi, syncChan, updateChan)
     }
   }
-  testChain.StartTestChain()
+	if (*testingFlagPtr) {
+		testChain.StartTestChain()
+	}
   // Begin World operation
   go world.LoopWorld()
 
