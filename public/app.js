@@ -11,15 +11,24 @@ ws = new WebSocket('ws://' + window.location.host + '/ws');
 ws.addEventListener('message', saveAddress);
 
 function saveAddress(e) {
-  mrmAddress = e.data
-      // Check if Web3 has been injected by the browser:
-  if (typeof web3 !== 'undefined' ) {
-    // You have a web3 browser! Continue below!
-    startApp(web3);
+  var msg = JSON.parse(e.data);
+  if (msg.testing == "true") {
+    document.getElementById("get-ride-button").onclick = getTestChainRide;
   } else {
-    alert("Get METAMASK!");
-     // Warn the user that they need to get a web3 browser
-     // Or install MetaMask, maybe with a nice graphic.
+    mrmAddress = msg.mrmAddress
+    document.getElementById('eth-interface').style.visibility = "visible";
+    document.getElementById("getMC").onclick = getMCs;
+    document.getElementById("approve-mc-button").onclick = approveMC;
+    document.getElementById("get-ride-button").onclick = getRide;
+        // Check if Web3 has been injected by the browser:
+    if (typeof web3 !== 'undefined' ) {
+      // You have a web3 browser! Continue below!
+      startApp(web3);
+    } else {
+      alert("Get METAMASK!");
+       // Warn the user that they need to get a web3 browser
+       // Or install MetaMask, maybe with a nice graphic.
+    }
   }
   ws.removeEventListener('message', saveAddress)
   ws.addEventListener('message', updateCarPosition);
@@ -33,10 +42,6 @@ function updateCarPosition(e) {
 };
 
 window.addEventListener('load', function() {
-
-  document.getElementById("getMC").onclick = getMCs;
-  document.getElementById("approve-mc-button").onclick = approveMC;
-  document.getElementById("get-ride-button").onclick = getRide;
   document.getElementById("set-start-point-button").onclick =
     function (e) {
       document.getElementById('Map').onclick = setStartPoint;
@@ -125,7 +130,7 @@ async function approveMC(){
 }
 
 async function getRide(){
-    console.log("trying to increase bid");
+    console.log("trying to get ride");
     var debugElement = document.getElementById("get-ride-debug");
     debugElement.innerHTML = "";
     const start = getLocations('start-point')
@@ -148,7 +153,29 @@ async function getRide(){
       waitForTxToBeMined(txHash);
       document.getElementById("get-ride-amount-field").value = 0;
     });
+}
 
+function getTestChainRide() {
+  console.log("trying to increase bid");
+    var debugElement = document.getElementById("get-ride-debug");
+    debugElement.innerHTML = "";
+    const start = getLocations('start-point')
+    const end = getLocations('end-point')
+    const amount = parseInt(document.getElementById("get-ride-amount-field").value);
+    if (start == "location not set"){
+      debugElement.innerHTML = "Set Start Point before getting ride";
+      return;
+    }else if (end == "location not set"){
+      debugElement.innerHTML = "Set End Point before getting ride";
+      return;
+    }else if (amount <= 0 ) {
+      document.getElementById("get-ride-debug").innerHTML = "Enter a ride amount greater than 0";
+      return;
+    }
+    console.log(start+" "+end);
+    ws.send(JSON.stringify({
+                        from: start,
+                        to: end}));
 }
 
 function getLocations(locString) {
@@ -171,7 +198,6 @@ function setStartPoint(e){
   document.getElementById("get-ride-debug").innerHTML = "";
   document.getElementById('Map').onclick = null;
 }
-
 
 
 function setEndPoint(e){

@@ -5,6 +5,7 @@ import (
   "net/http"
 	"log"
 
+	"fmt"
 )
 
 // Message - struct to contain all data relevant to rendering a Car on the frontend.
@@ -16,6 +17,19 @@ type Message struct {
 	Orientation   string `json:"orientation"`
 	State         string `json:"state"`
 }
+
+// Message struct to handshake the connection type with the client
+type HandshakeMessage struct {
+	Testing       string `json:"testing"`
+	MrmAddress    string `json:"mrmAddress"`
+}
+
+// ride struct to receive locations
+type RideRequestMessage struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+}
+
 
 // WebSrv - container for web server variables for the simulator.
 type WebSrv struct {
@@ -32,13 +46,23 @@ var upgrader = websocket.Upgrader{
 }
 
 var ExistingMrmAddress string
-
+var SendTestChain chan Ride
+var Testing bool
 // NewWebSrv - Constructor for a valid WebSrv object.
 func NewWebSrv(web chan Message, existingMrmAddress string) *WebSrv {
   s := new(WebSrv)
   s.webChan = web
   ExistingMrmAddress = existingMrmAddress
+  Testing = false
   return s
+}
+
+func NewTestChainWebSrv(web chan Message, sendTestChain chan Ride) *WebSrv {
+	s := new(WebSrv)
+	s.webChan = web
+	Testing = true
+	SendTestChain = sendTestChain
+	return s
 }
 
 // LoopWebSrv - Begin the web server execution loop.
@@ -87,11 +111,19 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	// Register our new client
 	clients[ws] = true
-	ws.WriteMessage(1,[]byte(ExistingMrmAddress) )
+	if Testing {
+		ws.WriteJSON(HandshakeMessage{Testing:"true"})
+	} else {
+		ws.WriteJSON(HandshakeMessage{Testing:"false", MrmAddress:ExistingMrmAddress})
+	}
 	for {
-		var msg Message
+		var rideReqMsg RideRequestMessage
 		// Read in a new message as JSON and map it to a Message object
-		err := ws.ReadJSON(&msg)
+		err := ws.ReadJSON(&rideReqMsg)
+		fmt.Println("Received Ride Request", rideReqMsg.From," ", rideReqMsg.To)
+		if Testing {
+			SendTestChain <- Ride{rideReqMsg.From, rideReqMsg.To}
+		}
 		if err != nil {
 			log.Printf("error: %v", err)
 			delete(clients, ws)
