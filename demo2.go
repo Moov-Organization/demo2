@@ -50,7 +50,7 @@ func main() {
     web = sim2.NewTestChainWebSrv(webChan, testChain.RecvServer)
   }
   // Instantiate cars
-  numCars := uint(1)
+  numCars := uint(4)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
@@ -64,11 +64,11 @@ func main() {
       scanner.Scan()
       carPrivateKey := scanner.Text()
       eth := sim2.NewEthApi(existingMrmAddress, carPrivateKey)
-      cars[i] = sim2.NewCar(id, graph, eth, syncChan, updateChan)
+      cars[i] = sim2.NewCar(id, graph, eth, syncChan, updateChan, webChan)
     } else {
     	fmt.Println("TESTING")
       testchainApi := testChain.RegisterBlockchainInteractor()
-      cars[i] = sim2.NewCar(id, graph, testchainApi, syncChan, updateChan)
+      cars[i] = sim2.NewCar(id, graph, testchainApi, syncChan, updateChan, webChan)
     }
   }
 	if (*testingFlagPtr) {

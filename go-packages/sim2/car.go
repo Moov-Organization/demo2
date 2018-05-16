@@ -21,6 +21,7 @@ type Car struct {
   sendChan     *chan CarInfo
   ethApi       BlockchainInterface
   requestState RequestState
+	webChan chan Message
 }
 
 type Path struct {
@@ -68,14 +69,14 @@ type IntersectionContext struct {
 
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo) *Car {
+func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo, webChan chan Message) *Car {
   c := new(Car)
   c.id = id
   c.graph = graph
   c.syncChan = sync
   c.sendChan = send
   c.ethApi = ethApi
-
+  c.webChan = webChan
   c.path.pos = c.graph.Vertices[id].Pos
   c.path.edge = *c.graph.Vertices[id].AdjEdges[0]
   //TODO deal with random edge equals current edge
@@ -142,6 +143,11 @@ func (c *Car) driveToDestination() {
     case ToPickUp:
       if c.driveOnCurrentEdgeTowards(c.path.pickUp.intersect) {
         fmt.Println("Car",c.id," Reached Pick Up, To Drop off")
+				c.webChan <- Message{
+					Type:"RideStatus",
+					Address:c.path.riderAddress,
+					State:"At Pick Up",
+				}
         c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
         c.path.state = Waiting
         c.path.nextState = ToDropOff
@@ -150,6 +156,11 @@ func (c *Car) driveToDestination() {
     case ToDropOff:
       if c.driveOnCurrentEdgeTowards(c.path.dropOff.intersect) {
         fmt.Println("Car",c.id," Reached Drop off, back to Random")
+        c.webChan <- Message{
+					Type:"RideStatus",
+					Address:c.path.riderAddress,
+					State:"At Drop Off",
+				}
         c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
         c.path.state = Waiting
         c.path.nextState = DrivingAtRandom
@@ -311,6 +322,11 @@ func (c *Car) checkRequestState() {
       }
     }else if c.requestState == Success {
       fmt.Println("Car",c.id," Got the Ride, To Pick Up")
+			c.webChan <- Message{
+				Type:"RideStatus",
+				Address:c.path.riderAddress,
+				State:"To Pick Up",
+			}
       c.path.pickUp, c.path.dropOff = c.getLocations()
       c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.pickUp.edge)
       c.path.state = ToPickUp

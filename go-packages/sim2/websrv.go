@@ -10,12 +10,13 @@ import (
 
 // Message - struct to contain all data relevant to rendering a Car on the frontend.
 type Message struct {
-	Type          string `json:"type"`
-	ID            string `json:"id"`
-	X             string `json:"x"`
-	Y             string `json:"y"`
-	Orientation   string `json:"orientation"`
-	State         string `json:"state"`
+	Type            string `json:"type"`
+	ID              string `json:"id"`
+	X               string `json:"x"`
+	Y               string `json:"y"`
+	Orientation     string `json:"orientation"`
+	State           string `json:"state"`
+	Address         string `json:"address"`
 }
 
 // Message struct to handshake the connection type with the client
@@ -120,8 +121,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		var rideReqMsg RideRequestMessage
 		// Read in a new message as JSON and map it to a Message object
 		err := ws.ReadJSON(&rideReqMsg)
-		fmt.Println("Received Ride Request", rideReqMsg.From," ", rideReqMsg.To)
-		if Testing {
+		if Testing && rideReqMsg.To != "" && rideReqMsg.From != "" {
+			fmt.Println("Received Ride Request", rideReqMsg.From, " ", rideReqMsg.To)
 			SendTestChain <- Ride{rideReqMsg.From, rideReqMsg.To}
 		}
 		if err != nil {

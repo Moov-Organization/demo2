@@ -9,10 +9,11 @@ var mrmAddress;
 
 ws = new WebSocket('ws://' + window.location.host + '/ws');
 ws.addEventListener('message', saveAddress);
-
+testing = false;
 function saveAddress(e) {
   var msg = JSON.parse(e.data);
   if (msg.testing == "true") {
+    testing = true;
     document.getElementById("get-ride-button").onclick = getTestChainRide;
   } else {
     mrmAddress = msg.mrmAddress
@@ -20,6 +21,7 @@ function saveAddress(e) {
     document.getElementById("getMC").onclick = getMCs;
     document.getElementById("approve-mc-button").onclick = approveMC;
     document.getElementById("get-ride-button").onclick = getRide;
+    document.getElementById("finish-ride-button").onclick = finishRide;
         // Check if Web3 has been injected by the browser:
     if (typeof web3 !== 'undefined' ) {
       // You have a web3 browser! Continue below!
@@ -36,9 +38,16 @@ function saveAddress(e) {
 
 function updateCarPosition(e) {
   var msg = JSON.parse(e.data);
-  document.getElementById('Car'+msg.id).style.top = parseInt(msg.y)+"px"
-  document.getElementById('Car'+msg.id).style.left = parseInt(msg.x)+"px"
-  document.getElementById('Car'+msg.id).style.transform  = "rotate("+(parseInt(msg.orientation)+180)+"deg)";
+  if (msg.type == "Car") {
+    document.getElementById('Car'+msg.id).style.top = parseInt(msg.y)+"px"
+    document.getElementById('Car'+msg.id).style.left = parseInt(msg.x)+"px"
+    document.getElementById('Car'+msg.id).style.transform  = "rotate("+(parseInt(msg.orientation)+180)+"deg)";
+  } else if (msg.type == "RideStatus"){
+    console.log(msg.state);
+    if (!testing && msg.address.toLowerCase() == coinbase && msg.state == "At Drop Off") {
+      document.getElementById("finish-ride-button").style.visibility = "visible";
+    }
+  }
 };
 
 window.addEventListener('load', function() {
@@ -155,8 +164,17 @@ async function getRide(){
     });
 }
 
+async function finishRide(){
+  mrm.finishRide({ from: coinbase }).then(function (txHash) {
+      console.log('Transaction sent');
+      console.dir(txHash);
+      waitForTxToBeMined(txHash);
+    });
+  document.getElementById("finish-ride-button").style.visibility = "hidden";
+}
+
 function getTestChainRide() {
-  console.log("trying to increase bid");
+  console.log("trying to get ride");
     var debugElement = document.getElementById("get-ride-debug");
     debugElement.innerHTML = "";
     const start = getLocations('start-point')
