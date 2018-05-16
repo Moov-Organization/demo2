@@ -395,7 +395,7 @@ func (e *Edge) checkIntersect(query Coords) (intersect Coords, distance float64)
 			intersect.Y = math.Round(y1)
 		} else {
 			intX := (mEdge * x1 - mPerp * xQuery + yQuery - y1) / (mEdge - mPerp)
-			intY := mPerp * (intersect.X - xQuery) + yQuery
+			intY := mPerp * (intX - xQuery) + yQuery
 			intersect.X = math.Round(intX)
 			intersect.Y = math.Round(intY)
 		}
