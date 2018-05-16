@@ -61,9 +61,9 @@ const (
 )
 
 type IntersectionContext struct {
-	stoppedCars   []CarInfo
-	movingCars    []CarInfo
-	//lastCarSince  time.Time
+	stoppedCars      []CarInfo
+	movingCars       []CarInfo
+	noCarsMoveSince  time.Time
 }
 
 
@@ -85,7 +85,8 @@ func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []Car
 }
 
 func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
-	edges, dist = c.graph.shortestPath(c.path.edge.End.ID, edge.End.ID)
+	edges, dist = c.graph.shortestPath(c.path.edge.End.ID, edge.Start.ID)
+	edges = append(edges, edge)
 	fmt.Print("Car ", c.id," new path ")
 	for _ , edge := range edges {
 		fmt.Print(edge.End.ID," ")
@@ -183,7 +184,6 @@ func (c *Car) driveOnCurrentEdgeTowards(endPos Coords) (bool) {
 }
 
 func (c *Car) keepDrivingOnRoute() () {
-
 	if c.path.pos == c.path.edge.End.Pos {
 		if c.path.edge.End.intersection != nil {
 			switch c.path.edge.End.intersection.intersectionType {
@@ -226,6 +226,9 @@ func (c *Car) saveStopSignInfo() {
 	otherCars := removeCar(c.path.otherCarInfo, c.id)
 	c.path.waitingFor.movingCars = c.getCarsMovingInIntersection(otherCars)
 	c.path.waitingFor.stoppedCars = c.getCarsStoppedAtIntersection(otherCars)
+	if len(c.path.waitingFor.movingCars) == 0 {
+		c.path.waitingFor.noCarsMoveSince = time.Now()
+	}
 }
 
 func (c *Car) clearToPassStopSign() (clear bool) {
@@ -239,6 +242,9 @@ func (c *Car) clearToPassStopSign() (clear bool) {
 			clear = false
 		} else {
 			c.path.waitingFor.movingCars = removeCar(c.path.waitingFor.movingCars, alreadyMovingCar.ID)
+			if len(c.path.waitingFor.movingCars) == 0 {
+				c.path.waitingFor.noCarsMoveSince = time.Now()
+			}
 		}
 	}
 
@@ -259,14 +265,18 @@ func (c *Car) clearToPassStopSign() (clear bool) {
 		}
 	}
 
-	//TODO break deadlocks if cars arrive at the same time
-	//if len(c.path.waitingFor.movingCars) == 0 && len(c.path.waitingFor.stoppedCars) == 1 {
-	//	if time.Now().Sub(c.path.waitingFor.lastCarSince) > time.Second * 10 {
-	//		//c.path.waitingFor.stoppedCars = []CarInfo{}
-	//		//clear = true
-	//		fmt.Println("HERE")
-	//	}
-	//}
+	// break deadlocks if cars arrive at the same time
+	if len(c.path.waitingFor.movingCars) == 0 && len(c.path.waitingFor.stoppedCars) > 0 {
+		if time.Now().Sub(c.path.waitingFor.noCarsMoveSince) > time.Second * 5 {
+			clear = true
+			for _, stoppedCar := range c.path.waitingFor.stoppedCars {
+				if stoppedCar.ID > c.id {
+					clear = false
+					fmt.Println("Broke Dead Lock")
+				}
+			}
+		}
+	}
 	return
 }
 
