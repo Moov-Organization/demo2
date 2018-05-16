@@ -19,6 +19,7 @@ type EthAPI struct {
 	auth *bind.TransactOpts
 	newRideEvent chan *MoovRideManagerNewRideRequest
 	lastNewRequestIndex uint
+	lastCheck time.Time
 }
 
 type BlockchainInterface interface {
@@ -51,6 +52,7 @@ func NewEthApi(mrmAddress string, privateKeyString string) (*EthAPI)  {
 	if err != nil {
 		log.Fatalf("could not watch for New Ride event: %v", err)
 	}
+	ethApi.lastCheck = time.Now()
 	return &ethApi
 }
 
@@ -76,8 +78,24 @@ func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address strin
 			available = false
 		}
 	default:
-		available = false
+		if time.Now().Sub(ethApi.lastCheck) > time.Second * 3 {
+			addresses, err := ethApi.mrm.GetAvailableRides(nil)
+			if err != nil {
+				log.Println("could not get addresses from car: ", err)
+			}
+			if len(addresses) > 0 {
+				//ethApi.lastNewRequestIndex = msg.Raw.Index
+				s1 := rand.NewSource(time.Now().UnixNano())
+				r1 := rand.New(s1)
+				address = addresses[uint(r1.Int()%len(addresses))].String()
+				available = true
+			} else {
+				available = false
+			}
+			ethApi.lastCheck = time.Now()
+		}
 	}
+
 	return
 }
 
