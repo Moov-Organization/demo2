@@ -55,10 +55,10 @@ func NewEthApi(mrmAddress string, privateKeyString string) (*EthAPI)  {
 }
 
 func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address string) {
-	//ethApi.checkConnection()
-	//select {
-	//case msg := <-ethApi.newRideEvent:
-	//	if msg.Raw.Index > ethApi.lastNewRequestIndex {
+	ethApi.checkConnection()
+	select {
+	case msg := <-ethApi.newRideEvent:
+		if msg.Raw.Index > ethApi.lastNewRequestIndex {
 			addresses, err := ethApi.mrm.GetAvailableRides(nil)
 			if err != nil {
 				log.Println("could not get addresses from car: ", err)
@@ -72,12 +72,12 @@ func (ethApi *EthAPI) GetRideAddressIfAvailable() (available bool, address strin
 			} else {
 				available = false
 			}
-	//	} else {
-	//		available = false
-	//	}
-	//default:
-	//	available = false
-	//}
+		} else {
+			available = false
+		}
+	default:
+		available = false
+	}
 	return
 }
 

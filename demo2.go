@@ -66,6 +66,7 @@ func main() {
       eth := sim2.NewEthApi(existingMrmAddress, carPrivateKey)
       cars[i] = sim2.NewCar(id, graph, eth, syncChan, updateChan)
     } else {
+    	fmt.Println("TESTING")
       testchainApi := testChain.RegisterBlockchainInteractor()
       cars[i] = sim2.NewCar(id, graph, testchainApi, syncChan, updateChan)
     }
