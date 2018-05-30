@@ -419,7 +419,7 @@ func (c *Car) getCarsMovingInIntersection(otherCars []CarInfo) (movingCars []Car
         for _, edge := range intersectionEntry.vertex.AdjEdges {
           if edge.ID == otherCarInfo.EdgeId {
             movingCars = append(movingCars, otherCarInfo)
-          }else if edge.End.AdjEdges[0].Start.ID >= 32 && edge.End.AdjEdges[0].ID == otherCarInfo.EdgeId { //Hack to include edge
+          }else if edge.Extends && edge.End.AdjEdges[0].ID == otherCarInfo.EdgeId {
             movingCars = append(movingCars, otherCarInfo)
           }
         }
