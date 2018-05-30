@@ -225,3 +225,6 @@ function setEndPoint(e){
   document.getElementById("get-ride-debug").innerHTML = "";
   document.getElementById('Map').onclick = null;
 }
+
+
+// console.log((e.pageX-document.getElementById('Map').offsetLeft)+","+(e.pageY-document.getElementById('Map').offsetTop));

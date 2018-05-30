@@ -77,8 +77,8 @@ func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan Traff
   c.sendChan = send
   c.ethApi = ethApi
   c.webChan = webChan
-  c.path.pos = c.graph.Vertices[id].Pos
-  c.path.edge = *c.graph.Vertices[id].AdjEdges[0]
+  c.path.pos = c.graph.Vertices[id+1].Pos
+  c.path.edge = *c.graph.Vertices[id+1].AdjEdges[0]
   //TODO deal with random edge equals current edge
   c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
 
@@ -227,6 +227,9 @@ func (c *Car) keepDrivingOnRoute() () {
       }
     } else {
       c.path.loadNextEdge()
+      if c.path.edge.Wraps {
+      	c.path.pos = c.path.edge.End.Pos
+			}
     }
   } else if c.path.pos.Distance(c.path.edge.End.Pos) > MovementPerFrame {
     if !c.collisionAhead() {
@@ -320,7 +323,7 @@ func (c *Car) clearToPassStopLight() (clear bool) {
 			entries := c.path.edge.End.intersection.entries
 			for direction, intersectionEntry := range entries {
 				if intersectionEntry.present && intersectionEntry.vertex.Pos == c.path.pos{
-					if stopLight.lightstates[direction] == Green && len(c.getCarsMovingInIntersection(c.path.trafficInfo.carStates)) == 0 {
+					if stopLight.lightstates[direction] == Green {
 						return true
 					} else {
 						return false
