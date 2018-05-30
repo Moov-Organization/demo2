@@ -35,6 +35,7 @@ type Edge struct {
 const NumberOfDirections = 4
 
 type Intersection struct {
+  id uint
   entries [NumberOfDirections]EntryInfo
   intersectionType IntersectionType
 }
@@ -135,10 +136,15 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
     }
   }
 
+  intersectionCount := 0
   for scanner.Scan() {
     text := scanner.Text()
+    if text == "STOPLIGHTS" {
+      break
+    }
     numbers := splitLine(text," ", 4)
     var stopSign Intersection
+    stopSign.id = uint(intersectionCount)
     stopSign.intersectionType = StopSign
     for direction, number := range numbers {
       if number >= 0 {
@@ -149,7 +155,25 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
       }
     }
     d.Intersections = append(d.Intersections, &stopSign)
+    intersectionCount++
+  }
 
+  for scanner.Scan() {
+    text := scanner.Text()
+    numbers := splitLine(text," ", 4)
+    var stopLight Intersection
+    stopLight.id = uint(intersectionCount)
+    stopLight.intersectionType = StopLight
+    for direction, number := range numbers {
+      if number >= 0 {
+        stopLight.entries[direction].present = true
+        stopLight.entries[direction].vertex = d.Vertices[uint(number)]
+        d.Vertices[uint(number)].intersection = &stopLight
+        d.Vertices[uint(number)].directionFromIntersection = Direction(direction)
+      }
+    }
+    d.Intersections = append(d.Intersections, &stopLight)
+    intersectionCount++
   }
   return d
 }
@@ -284,8 +308,8 @@ func (g *Digraph) shortestPath(startVertID, endVertID uint) (edges []Edge, dist 
 
     // Invert the path back for the path from start
 
-    len := len(inverse)
-    for idx := len - 1; idx >= 0; idx-- {
+    length := len(inverse)
+    for idx := length - 1; idx >= 0; idx-- {
       edgeIDs = append(edgeIDs, inverse[idx])
     }
   }
