@@ -17,7 +17,7 @@ type Car struct {
   id           uint
   path         Path
   graph        *Digraph
-  syncChan     chan []CarInfo
+  syncChan     chan TrafficInfo
   sendChan     *chan CarInfo
   ethApi       BlockchainInterface
   requestState RequestState
@@ -36,7 +36,7 @@ type Path struct {
   justReachedEdgeEnd bool
   stopAlarm          <-chan time.Time
   waitingFor         IntersectionContext
-  otherCarInfo       []CarInfo
+  trafficInfo       TrafficInfo
 }
 
 type Location struct {
@@ -69,7 +69,7 @@ type IntersectionContext struct {
 
 
 // NewCar - Construct a new valid Car object
-func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan []CarInfo, send *chan CarInfo, webChan chan Message) *Car {
+func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan TrafficInfo, send *chan CarInfo, webChan chan Message) *Car {
   c := new(Car)
   c.id = id
   c.graph = graph
@@ -100,7 +100,7 @@ func (c *Car) getShortestPathToEdge(edge Edge) (edges []Edge, dist float64) {
 func (c *Car) CarLoop() {
   for {
     //TODO pull out the current car's id in the next line
-    c.path.otherCarInfo =  <-c.syncChan // Block waiting for next sync event
+    c.path.trafficInfo =  <-c.syncChan // Block waiting for next sync event
     c.drive()
     info := CarInfo{ID:c.id, Pos:c.path.pos, Vel:Coords{0,0}, Dir:c.path.edge.unitVector(), EdgeId:c.path.edge.ID }
     *c.sendChan <- info
@@ -217,14 +217,18 @@ func (c *Car) keepDrivingOnRoute() () {
         }
 
       case StopLight:
-        //if c.clearToPassStopLight() {
-        //  c.path.loadNextEdge()
-        //}
+        if c.clearToPassStopLight() {
+         c.path.loadNextEdge()
+        } else {
+					c.path.nextState = c.path.state
+					c.path.state = Waiting
+					c.path.stopAlarm = time.After(time.Millisecond * 500)
+				}
       }
     } else {
       c.path.loadNextEdge()
     }
-  }  else if c.path.pos.Distance(c.path.edge.End.Pos) > MovementPerFrame {
+  } else if c.path.pos.Distance(c.path.edge.End.Pos) > MovementPerFrame {
     if !c.collisionAhead() {
       c.path.pos = c.path.pos.ProjectInDirection(MovementPerFrame, c.path.edge.End.Pos)
     }
@@ -235,7 +239,7 @@ func (c *Car) keepDrivingOnRoute() () {
 }
 
 func (c *Car) saveStopSignInfo() {
-	otherCars := removeCar(c.path.otherCarInfo, c.id)
+	otherCars := removeCar(c.path.trafficInfo.carStates, c.id)
 	c.path.waitingFor.movingCars = c.getCarsMovingInIntersection(otherCars)
 	c.path.waitingFor.stoppedCars = c.getCarsStoppedAtIntersection(otherCars)
 	if len(c.path.waitingFor.movingCars) == 0 {
@@ -245,7 +249,7 @@ func (c *Car) saveStopSignInfo() {
 
 func (c *Car) clearToPassStopSign() (clear bool) {
   clear = true
-  otherCars := removeCar(c.path.otherCarInfo, c.id)
+  otherCars := removeCar(c.path.trafficInfo.carStates, c.id)
 
 	currentlyMovingCars := c.getCarsMovingInIntersection(otherCars)
 	for _, alreadyMovingCar := range c.path.waitingFor.movingCars {
@@ -294,7 +298,7 @@ func (c *Car) clearToPassStopSign() (clear bool) {
 
 
 func (c *Car) collisionAhead() bool {
-  carInfos := removeCar(c.path.otherCarInfo, c.id)
+  carInfos := removeCar(c.path.trafficInfo.carStates, c.id)
   //fmt.Printf("car %d info address %p \n", c.id, &carInfos)
   for _, otherCarInfo := range carInfos {
     if otherCarInfo.ID != c.id && otherCarInfo.EdgeId == c.path.edge.ID {
@@ -308,6 +312,24 @@ func (c *Car) collisionAhead() bool {
     }
   }
   return false
+}
+
+func (c *Car) clearToPassStopLight() (clear bool) {
+	for _, stopLight := range c.path.trafficInfo.stopLightStates {
+		if stopLight.ID == c.path.edge.End.intersection.id {
+			entries := c.path.edge.End.intersection.entries
+			for direction, intersectionEntry := range entries {
+				if intersectionEntry.present && intersectionEntry.vertex.Pos == c.path.pos{
+					if stopLight.lightstates[direction] == Green && len(c.getCarsMovingInIntersection(c.path.trafficInfo.carStates)) == 0 {
+						return true
+					} else {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return
 }
 
 func (c *Car) checkRequestState() {
