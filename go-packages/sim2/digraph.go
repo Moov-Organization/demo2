@@ -29,6 +29,7 @@ type Edge struct {
   Start *Vertex
   End *Vertex
   Weight float64
+  Extends bool
 }
 
 // The number of directions at an waitingFor
@@ -114,6 +115,11 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
     // Parse adjacent vertices
     for _, point := range line[2:] {
       // Construct and populate new adjacent Vertex
+      edgeExtends := false
+      if point[len(point)-1:] == "e"{
+      	edgeExtends = true
+				point = point[:len(point)-1]
+			}
       idReadNext, _ := strconv.Atoi(point)
       idNext := uint(idReadNext)
       if _, ok := d.Vertices[idNext]; !ok {
@@ -126,6 +132,7 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
       edge.ID = uint(len(d.Edges))
       edge.Start = vert
       edge.End = vertNext
+      edge.Extends = edgeExtends
       d.Edges[edge.ID] = edge
       vert.AdjEdges = append(vert.AdjEdges, edge)
     }
