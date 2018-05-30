@@ -30,6 +30,7 @@ type Edge struct {
   End *Vertex
   Weight float64
   Extends bool
+  Wraps bool
 }
 
 // The number of directions at an waitingFor
@@ -120,7 +121,15 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
       	edgeExtends = true
 				point = point[:len(point)-1]
 			}
-      idReadNext, _ := strconv.Atoi(point)
+			edgeWraps := false
+			if point[len(point)-1:] == "w"{
+				edgeWraps = true
+				point = point[:len(point)-1]
+			}
+      idReadNext, err := strconv.Atoi(point)
+			if err != nil {
+				log.Fatalf("%s is not a number", point)
+			}
       idNext := uint(idReadNext)
       if _, ok := d.Vertices[idNext]; !ok {
         d.Vertices[idNext] = new(Vertex)
@@ -133,6 +142,7 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
       edge.Start = vert
       edge.End = vertNext
       edge.Extends = edgeExtends
+      edge.Wraps = edgeWraps
       d.Edges[edge.ID] = edge
       vert.AdjEdges = append(vert.AdjEdges, edge)
     }
@@ -140,6 +150,9 @@ func GetDigraphFromFile(fname string) (d *Digraph) {
     // Set starting edge weight based on distance
     for _, edge := range d.Edges {
       edge.Weight = edge.Start.Pos.Distance(edge.End.Pos)
+      if edge.Wraps {
+      	edge.Weight = 0
+			}
     }
   }
 
@@ -348,15 +361,17 @@ func (g Digraph) closestEdgeAndCoord(queryPoint Coords) (location Location) {
 
   // TODO: remove randomness caused by traversing equivalent closest edges with 'range' on map here
   for _, edge := range g.Edges {
-    coord, dist := edge.checkIntersect(queryPoint)
-    //fmt.Print("[", edge.Start.ID, ", ", edge.End.ID, "]: ")
-    //fmt.Print("shortest: ", location.intersect, "@", shortestDistance, ", new: ", coord, "@", dist)
-    if dist < shortestDistance {
-      shortestDistance = dist
-      location.intersect = coord
-      location.edge = *edge
-      //fmt.Print(" (new shortest: ", coord, "@", dist, ")")
-    }
+  	if !edge.Wraps {
+			coord, dist := edge.checkIntersect(queryPoint)
+			//fmt.Print("[", edge.Start.ID, ", ", edge.End.ID, "]: ")
+			//fmt.Print("shortest: ", location.intersect, "@", shortestDistance, ", new: ", coord, "@", dist)
+			if dist < shortestDistance {
+				shortestDistance = dist
+				location.intersect = coord
+				location.edge = *edge
+				//fmt.Print(" (new shortest: ", coord, "@", dist, ")")
+			}
+		}
     //fmt.Println()
   }
   //fmt.Print("Shortest from query ", queryPoint, ": ", location.intersect, " on {")

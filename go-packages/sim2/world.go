@@ -25,6 +25,7 @@ type CarInfo struct {
 type StopLightInfo struct {
 	ID uint
 	lightstates [NumberOfDirections]LightState
+	alarm time.Time
 }
 
 type LightState int
@@ -43,7 +44,6 @@ type World struct {
   syncChans []chan TrafficInfo  // Index by actor ID for channel to/from that actor
   recvChan chan CarInfo  // Receive from all Cars registered on one channel
   webChan chan Message
-	sinceLastStopLightUpdate  time.Time
 }
 
 // NewWorld - Constructor for valid World object.
@@ -88,8 +88,9 @@ func (w *World) RegisterCar() (uint, chan TrafficInfo, *chan CarInfo, bool) {
 func (w *World) LoopWorld() {
 	for idx := range w.trafficInfo.stopLightStates {
 		w.trafficInfo.stopLightStates[idx].lightstates[West] = Green
+		w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second * 5)
 	}
-	w.sinceLastStopLightUpdate = time.Now()
+
 	itercounter := uint64(0)
   for {
     //fmt.Println("Iteration", itercounter)
@@ -153,15 +154,20 @@ func (w *World) RegisterWeb() (chan Message, bool) {
 
 
 func (w *World) updateStopLights() {
-	if time.Now().Sub(w.sinceLastStopLightUpdate) > time.Second * 5 {
-		for idx := range w.trafficInfo.stopLightStates {
+	for idx, stopLightState := range w.trafficInfo.stopLightStates {
+		if time.Now().After(stopLightState.alarm) {
 			for direction, lightState := range w.trafficInfo.stopLightStates[idx].lightstates {
 				if lightState == Green {
-					w.trafficInfo.stopLightStates[idx].lightstates[direction] = Red
-					w.trafficInfo.stopLightStates[idx].lightstates[(direction+1)%NumberOfDirections] = Green
+					w.trafficInfo.stopLightStates[idx].lightstates[direction] = Red //TODO: Maybe switch this to orange too?
+					w.trafficInfo.stopLightStates[idx].lightstates[(direction+1)%NumberOfDirections] = Orange
+					w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second)
+					break;
+				} else if lightState == Orange {
+					w.trafficInfo.stopLightStates[idx].lightstates[direction] = Green
+					w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second * 5)
+					break;
 				}
 			}
 		}
-		w.sinceLastStopLightUpdate = time.Now()
 	}
 }
