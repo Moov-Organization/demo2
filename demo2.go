@@ -13,11 +13,11 @@ import (
 
 func main() {
   fmt.Println("Starting demo2 simulation")
-  testingFlagPtr := flag.Bool("testing", false, "a boolean to turn on testing")
+  testingFlagPtr := flag.Bool("testing", true, "a boolean to turn on testing")
   flag.Parse()
 
   // Instantiate world
-  graph := sim2.GetDigraphFromFile("maps/4by4.map")
+  graph := sim2.GetDigraphFromFile("maps/w4by4.map")
   world := sim2.NewWorld(50, graph)
 
   // Instantiate JSON web output
@@ -58,7 +58,7 @@ func main() {
     if !ok {
       log.Fatalln("error: failed to register car")
     }
-		graph = sim2.GetDigraphFromFile("maps/4by4.map")
+		graph = sim2.GetDigraphFromFile("maps/w4by4.map")
     if (!*testingFlagPtr) {
       scanner.Scan()
       scanner.Scan()
