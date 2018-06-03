@@ -18,7 +18,7 @@ type CarInfo struct {
   ID uint
   Pos Coords
   Vel Coords  // with respect to current position, offset for a single frame
-  Dir Coords  // unit vector with respect to current position
+  Dir float64  // unit vector with respect to current position
   EdgeId uint
 }
 
@@ -113,7 +113,7 @@ func (w *World) LoopWorld() {
         ID:strconv.Itoa(int(idx)),
         X:strconv.Itoa(int(car.Pos.X)),
         Y:strconv.Itoa(int(car.Pos.Y)),
-        Orientation:strconv.Itoa(int(Coords{0,0}.Angle(car.Dir))),
+        Orientation:strconv.Itoa(int(car.Dir)),
       }
     }
 

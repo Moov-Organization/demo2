@@ -17,8 +17,8 @@ func main() {
   flag.Parse()
 
   // Instantiate world
-  graph := sim2.GetDigraphFromFile("maps/w4by4.map")
-  world := sim2.NewWorld(50, graph)
+  graph := sim2.GetDigraphFromFile("maps/final.map")
+  world := sim2.NewWorld(25, graph)
 
   // Instantiate JSON web output
   webChan, ok := world.RegisterWeb()
@@ -50,7 +50,7 @@ func main() {
     web = sim2.NewTestChainWebSrv(webChan, testChain.RecvServer)
   }
   // Instantiate cars
-  numCars := uint(4)
+  numCars := uint(6)
   cars := make([]*sim2.Car, numCars)
   for i := uint(0); i < numCars; i++ {
     // Request to register new car from World
@@ -58,7 +58,7 @@ func main() {
     if !ok {
       log.Fatalln("error: failed to register car")
     }
-		graph = sim2.GetDigraphFromFile("maps/w4by4.map")
+		graph = sim2.GetDigraphFromFile("maps/final.map")
     if (!*testingFlagPtr) {
       scanner.Scan()
       scanner.Scan()
