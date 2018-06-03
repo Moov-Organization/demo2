@@ -9,7 +9,7 @@ import (
   "math"
   "math/rand"
   "time"
-  //"fmt"
+
 )
 
 // digraph - Describes an implementation of a simple weighted directed graph with underlying coords
