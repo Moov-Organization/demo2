@@ -4,6 +4,7 @@ import (
   "log"
   "fmt"
   "time"
+	"math"
 )
 
 // car - Describes routine hooks and logic for Cars within a World simulation
@@ -28,6 +29,7 @@ type Path struct {
   pickUp             Location
   dropOff            Location
   pos                Coords
+  orientation				 float64
   edge               Edge
   state              PathState
   nextState          PathState
@@ -77,8 +79,9 @@ func NewCar(id uint, graph *Digraph, ethApi BlockchainInterface, sync chan Traff
   c.sendChan = send
   c.ethApi = ethApi
   c.webChan = webChan
-  c.path.pos = c.graph.Vertices[id+1].Pos
-  c.path.edge = *c.graph.Vertices[id+1].AdjEdges[0]
+  c.path.pos = c.graph.Vertices[id*3+1].Pos
+  c.path.edge = *c.graph.Vertices[id*3+1].AdjEdges[0]
+	c.path.orientation = Coords{0,0}.Angle(c.path.edge.unitVector())
   //TODO deal with random edge equals current edge
   c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
 
@@ -102,7 +105,11 @@ func (c *Car) CarLoop() {
     //TODO pull out the current car's id in the next line
     c.path.trafficInfo =  <-c.syncChan // Block waiting for next sync event
     c.drive()
-    info := CarInfo{ID:c.id, Pos:c.path.pos, Vel:Coords{0,0}, Dir:c.path.edge.unitVector(), EdgeId:c.path.edge.ID }
+    if !c.path.edge.Wraps {
+			desiredAngle := Coords{0, 0}.Angle(c.path.edge.unitVector())
+			c.path.orientation = determineOrientation(c.path.orientation, desiredAngle, 3)
+		}
+    info := CarInfo{ID:c.id, Pos:c.path.pos, Vel:Coords{0,0}, Dir:c.path.orientation, EdgeId:c.path.edge.ID }
     *c.sendChan <- info
   }
 }
@@ -180,6 +187,26 @@ func (p *Path) loadNextEdge() () {
   p.justReachedEdgeEnd = false;
 }
 
+func (c *Car) collisionInNextEdge() bool {
+	carInfos := removeCar(c.path.trafficInfo.carStates, c.id)
+	//fmt.Printf("car %d info address %p \n", c.id, &carInfos)
+	for _, otherCarInfo := range carInfos {
+		if otherCarInfo.EdgeId == c.path.routeEdges[0].ID {
+			if c.path.routeEdges[0].Wraps {
+				return true
+			}
+			edgeEndPos := c.path.routeEdges[0].End.Pos
+			otherCarDistanceToEdge := otherCarInfo.Pos.Distance(edgeEndPos)
+			thisCarDistanceToEdge := c.path.routeEdges[0].Start.Pos.Distance(edgeEndPos)
+			distanceBetweenCars := thisCarDistanceToEdge - otherCarDistanceToEdge
+			if distanceBetweenCars > 0 && distanceBetweenCars < 100 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (c *Car) driveOnCurrentEdgeTowards(endPos Coords) (bool) {
   if c.path.pos == endPos {
     return true
@@ -195,7 +222,6 @@ func (c *Car) driveOnCurrentEdgeTowards(endPos Coords) (bool) {
 }
 
 func (c *Car) keepDrivingOnRoute() () {
-
   if c.path.pos == c.path.edge.End.Pos {
     if c.path.edge.End.intersection != nil {
       switch c.path.edge.End.intersection.intersectionType {
@@ -209,7 +235,9 @@ func (c *Car) keepDrivingOnRoute() () {
           c.path.justReachedEdgeEnd = false
         } else if c.clearToPassStopSign() {
           //fmt.Println("Car ", c.id," clear to cross intersection")
-          c.path.loadNextEdge()
+          if !c.collisionInNextEdge() {
+						c.path.loadNextEdge()
+					}
         } else {
           c.path.nextState = c.path.state
           c.path.state = Waiting
@@ -218,7 +246,9 @@ func (c *Car) keepDrivingOnRoute() () {
 
       case StopLight:
         if c.clearToPassStopLight() {
-         c.path.loadNextEdge()
+					if !c.collisionInNextEdge() {
+						c.path.loadNextEdge()
+					}
         } else {
 					c.path.nextState = c.path.state
 					c.path.state = Waiting
@@ -226,9 +256,12 @@ func (c *Car) keepDrivingOnRoute() () {
 				}
       }
     } else {
-      c.path.loadNextEdge()
+			if !c.collisionInNextEdge() {
+				c.path.loadNextEdge()
+			}
       if c.path.edge.Wraps {
       	c.path.pos = c.path.edge.End.Pos
+      	c.path.justReachedEdgeEnd = true
 			}
     }
   } else if c.path.pos.Distance(c.path.edge.End.Pos) > MovementPerFrame {
@@ -304,7 +337,7 @@ func (c *Car) collisionAhead() bool {
   carInfos := removeCar(c.path.trafficInfo.carStates, c.id)
   //fmt.Printf("car %d info address %p \n", c.id, &carInfos)
   for _, otherCarInfo := range carInfos {
-    if otherCarInfo.ID != c.id && otherCarInfo.EdgeId == c.path.edge.ID {
+    if otherCarInfo.EdgeId == c.path.edge.ID {
       edgeEndPos := c.path.edge.End.Pos
       otherCarDistanceToEdge := otherCarInfo.Pos.Distance(edgeEndPos)
       thisCarDistanceToEdge := c.path.pos.Distance(edgeEndPos)
@@ -430,4 +463,39 @@ func (c *Car) getCarsMovingInIntersection(otherCars []CarInfo) (movingCars []Car
     }
   }
   return
+}
+
+func determineOrientation (currentAngle float64, desiredAngle float64, steps float64) float64 {
+	if currentAngle < 0 {
+		currentAngle += 360
+	}
+	if desiredAngle < 0 {
+		desiredAngle += 360
+	}
+	error := (desiredAngle-currentAngle)
+	newAngle := 0.0
+	if math.Abs(error)  > steps {
+		if error > 0 {
+			if error < 180 {
+				newAngle = currentAngle + steps
+			} else {
+				newAngle = currentAngle - steps
+			}
+		} else {
+			if error > -180 {
+				newAngle = currentAngle - steps
+			} else {
+				newAngle = currentAngle + steps
+			}
+		}
+	} else {
+		newAngle = desiredAngle
+	}
+	if newAngle > 360 {
+		newAngle -= 360
+	} else if newAngle < 0 {
+		newAngle += 360
+	}
+	return newAngle
+
 }
