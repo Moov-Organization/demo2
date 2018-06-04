@@ -22,6 +22,12 @@ div#Cars {
     left: -55px ;
 }
 
+div#StopLights {
+    position: absolute;
+    top: -55px ;
+    left: -55px ;
+}
+
 img.carimgs {
 	position: absolute;
 }
@@ -46,4 +52,22 @@ input[type="number"] {
 .point {
 	position: absolute;
 	visibility: hidden;
+}
+
+.StopLight{
+    position: absolute;
+}
+
+.StopLightHorizontal{
+    position: absolute;
+    width:24px;
+    height:5px;
+    background:#c70101;
+}
+
+.StopLightVertical{
+    position: absolute;
+    width:5px;
+    height:24px;
+    background:#c70101;
 }

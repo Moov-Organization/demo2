@@ -42,10 +42,33 @@ function updateCarPosition(e) {
     document.getElementById('Car'+msg.id).style.top = parseInt(msg.y)+"px"
     document.getElementById('Car'+msg.id).style.left = parseInt(msg.x)+"px"
     document.getElementById('Car'+msg.id).style.transform  = "rotate("+(parseInt(msg.orientation)+180)+"deg)";
-  } else if (msg.type == "RideStatus"){
-    console.log(msg.state);
-    if (!testing && msg.address.toLowerCase() == coinbase && msg.state == "At Drop Off") {
-      document.getElementById("finish-ride-button").style.visibility = "visible";
+  } else if (msg.type == "Stoplight"){
+      var lightMap = {
+          "0": "#c70101",
+          "1": "Orange",
+          "2": "Green"
+      };
+      document.getElementById('StopLight'+msg.id).querySelector('div[name="West"]').style.background = lightMap[msg.north];
+      document.getElementById('StopLight'+msg.id).querySelector('div[name="South"]').style.background = lightMap[msg.west];
+      document.getElementById('StopLight'+msg.id).querySelector('div[name="East"]').style.background = lightMap[msg.south];
+      document.getElementById('StopLight'+msg.id).querySelector('div[name="North"]').style.background = lightMap[msg.east];
+  } else if (msg.type == "RideStatus" && (testing || msg.address.toLowerCase() == coinbase)) {
+    switch(msg.state) {
+        case "To Pick Up":
+            var carName = document.getElementById('Car' + msg.id).name;
+            document.getElementById("get-ride-debug").innerHTML = carName + " is on the way";
+            break;
+        case "At Pick Up":
+            var carName = document.getElementById('Car' + msg.id).name;
+            document.getElementById("get-ride-debug").innerHTML = carName + " is at Pickup";
+            break;
+        case "At Drop Off":
+            var carName = document.getElementById('Car' + msg.id).name;
+            document.getElementById("get-ride-debug").innerHTML = carName + " is at Dropoff";
+            if (!testing && msg.address.toLowerCase() == coinbase) {
+                document.getElementById("finish-ride-button").style.visibility = "visible";
+            }
+            break;
     }
   }
 };
