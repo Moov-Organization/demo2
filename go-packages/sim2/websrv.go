@@ -17,6 +17,10 @@ type Message struct {
 	Orientation     string `json:"orientation"`
 	State           string `json:"state"`
 	Address         string `json:"address"`
+	West            string `json:"west"`
+	South           string `json:"south"`
+	East            string `json:"east"`
+	North           string `json:"north"`
 }
 
 // Message struct to handshake the connection type with the client
