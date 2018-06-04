@@ -9,8 +9,8 @@ import (
 // world - Describes world state: position and velocity of all cars in simulation
 
 type TrafficInfo struct {
-	carStates []CarInfo
-	stopLightStates []StopLightInfo
+	carStates  []CarInfo
+	stopLights []StopLightInfo
 }
 
 // CarInfo - struct to contain position and velocity information for a simulated car.
@@ -55,7 +55,7 @@ func NewWorld(fps float64, graph *Digraph) *World {
 
   for _, intersection := range graph.Intersections {
   	if intersection.intersectionType == StopLight {
-			w.trafficInfo.stopLightStates = append(w.trafficInfo.stopLightStates, StopLightInfo{ID:intersection.id})
+			w.trafficInfo.stopLights = append(w.trafficInfo.stopLights, StopLightInfo{ID:intersection.id})
 		}
 	}
   // NOTE recvChan is nil until cars are registered
@@ -86,9 +86,9 @@ func (w *World) RegisterCar() (uint, chan TrafficInfo, *chan CarInfo, bool) {
 
 // LoopWorld - Begin the world simulation execution loop
 func (w *World) LoopWorld() {
-	for idx := range w.trafficInfo.stopLightStates {
-		w.trafficInfo.stopLightStates[idx].lightstates[West] = Green
-		w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second * 5)
+	for idx := range w.trafficInfo.stopLights {
+		w.trafficInfo.stopLights[idx].lightstates[West] = Green
+		w.trafficInfo.stopLights[idx].alarm = time.Now().Add(time.Second * 5)
 	}
 
 	itercounter := uint64(0)
@@ -101,8 +101,8 @@ func (w *World) LoopWorld() {
     for ID := range w.trafficInfo.carStates {
       cpyCarInfo := make([]CarInfo, len(w.trafficInfo.carStates))
       copy(cpyCarInfo, w.trafficInfo.carStates)
-			cpyStopLightInfo := make([]StopLightInfo, len(w.trafficInfo.stopLightStates))
-			copy(cpyStopLightInfo, w.trafficInfo.stopLightStates)
+			cpyStopLightInfo := make([]StopLightInfo, len(w.trafficInfo.stopLights))
+			copy(cpyStopLightInfo, w.trafficInfo.stopLights)
       w.syncChans[ID] <- TrafficInfo{cpyCarInfo,cpyStopLightInfo}
     }
 
@@ -116,6 +116,8 @@ func (w *World) LoopWorld() {
         Orientation:strconv.Itoa(int(car.Dir)),
       }
     }
+
+
 
     // Wait for all registered cars to report
     for carRecvCt := uint(0); carRecvCt < w.numRegisteredCars ; {
@@ -154,19 +156,27 @@ func (w *World) RegisterWeb() (chan Message, bool) {
 
 
 func (w *World) updateStopLights() {
-	for idx, stopLightState := range w.trafficInfo.stopLightStates {
-		if time.Now().After(stopLightState.alarm) {
-			for direction, lightState := range w.trafficInfo.stopLightStates[idx].lightstates {
+	for idx, stopLight := range w.trafficInfo.stopLights {
+		if time.Now().After(stopLight.alarm) {
+			for direction, lightState := range w.trafficInfo.stopLights[idx].lightstates {
 				if lightState == Green {
-					w.trafficInfo.stopLightStates[idx].lightstates[direction] = Red //TODO: Maybe switch this to orange too?
-					w.trafficInfo.stopLightStates[idx].lightstates[(direction+1)%NumberOfDirections] = Orange
-					w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second)
+					w.trafficInfo.stopLights[idx].lightstates[direction] = Red //TODO: Maybe switch this to orange too?
+					w.trafficInfo.stopLights[idx].lightstates[(direction+1)%NumberOfDirections] = Orange
+					w.trafficInfo.stopLights[idx].alarm = time.Now().Add(time.Second)
 					break;
 				} else if lightState == Orange {
-					w.trafficInfo.stopLightStates[idx].lightstates[direction] = Green
-					w.trafficInfo.stopLightStates[idx].alarm = time.Now().Add(time.Second * 5)
+					w.trafficInfo.stopLights[idx].lightstates[direction] = Green
+					w.trafficInfo.stopLights[idx].alarm = time.Now().Add(time.Second * 5)
 					break;
 				}
+			}
+			w.webChan <- Message{
+				Type:"Stoplight",
+				ID:strconv.Itoa(int(idx)),
+				West:strconv.Itoa(int(w.trafficInfo.stopLights[idx].lightstates[West])),
+				South:strconv.Itoa(int(w.trafficInfo.stopLights[idx].lightstates[South])),
+				East:strconv.Itoa(int(w.trafficInfo.stopLights[idx].lightstates[East])),
+				North:strconv.Itoa(int(w.trafficInfo.stopLights[idx].lightstates[North])),
 			}
 		}
 	}

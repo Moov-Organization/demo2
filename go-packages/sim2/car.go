@@ -5,13 +5,14 @@ import (
   "fmt"
   "time"
 	"math"
+	"strconv"
 )
 
 // car - Describes routine hooks and logic for Cars within a World simulation
 
 // The distance the car should move every drive call
 const MovementPerFrame = 2
-
+const MinimumStopDistance = 75
 // Car - struct for all info needed to manage a Car within a World simulation.
 type Car struct {
   // TODO determine if Car needs any additional/public members
@@ -154,6 +155,7 @@ func (c *Car) driveToDestination() {
 					Type:"RideStatus",
 					Address:c.path.riderAddress,
 					State:"At Pick Up",
+					ID: strconv.Itoa(int(c.id)),
 				}
         c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.dropOff.edge)
         c.path.state = Waiting
@@ -167,6 +169,7 @@ func (c *Car) driveToDestination() {
 					Type:"RideStatus",
 					Address:c.path.riderAddress,
 					State:"At Drop Off",
+					ID: strconv.Itoa(int(c.id)),
 				}
         c.path.routeEdges, _ = c.getShortestPathToEdge(c.graph.getRandomEdge())
         c.path.state = Waiting
@@ -199,7 +202,7 @@ func (c *Car) collisionInNextEdge() bool {
 			otherCarDistanceToEdge := otherCarInfo.Pos.Distance(edgeEndPos)
 			thisCarDistanceToEdge := c.path.routeEdges[0].Start.Pos.Distance(edgeEndPos)
 			distanceBetweenCars := thisCarDistanceToEdge - otherCarDistanceToEdge
-			if distanceBetweenCars > 0 && distanceBetweenCars < 100 {
+			if distanceBetweenCars > 0 && distanceBetweenCars < MinimumStopDistance {
 				return true
 			}
 		}
@@ -342,7 +345,7 @@ func (c *Car) collisionAhead() bool {
       otherCarDistanceToEdge := otherCarInfo.Pos.Distance(edgeEndPos)
       thisCarDistanceToEdge := c.path.pos.Distance(edgeEndPos)
       distanceBetweenCars := thisCarDistanceToEdge - otherCarDistanceToEdge
-      if distanceBetweenCars > 0 && distanceBetweenCars < 100 {
+      if distanceBetweenCars > 0 && distanceBetweenCars < MinimumStopDistance {
         return true
       }
     }
@@ -351,7 +354,7 @@ func (c *Car) collisionAhead() bool {
 }
 
 func (c *Car) clearToPassStopLight() (clear bool) {
-	for _, stopLight := range c.path.trafficInfo.stopLightStates {
+	for _, stopLight := range c.path.trafficInfo.stopLights {
 		if stopLight.ID == c.path.edge.End.intersection.id {
 			entries := c.path.edge.End.intersection.entries
 			for direction, intersectionEntry := range entries {
@@ -384,6 +387,7 @@ func (c *Car) checkRequestState() {
 				Type:"RideStatus",
 				Address:c.path.riderAddress,
 				State:"To Pick Up",
+				ID: strconv.Itoa(int(c.id)),
 			}
       c.path.pickUp, c.path.dropOff = c.getLocations()
       c.path.routeEdges, _ = c.getShortestPathToEdge(c.path.pickUp.edge)
@@ -472,17 +476,17 @@ func determineOrientation (currentAngle float64, desiredAngle float64, steps flo
 	if desiredAngle < 0 {
 		desiredAngle += 360
 	}
-	error := (desiredAngle-currentAngle)
+	err := (desiredAngle-currentAngle)
 	newAngle := 0.0
-	if math.Abs(error)  > steps {
-		if error > 0 {
-			if error < 180 {
+	if math.Abs(err)  > steps {
+		if err > 0 {
+			if err < 180 {
 				newAngle = currentAngle + steps
 			} else {
 				newAngle = currentAngle - steps
 			}
 		} else {
-			if error > -180 {
+			if err > -180 {
 				newAngle = currentAngle - steps
 			} else {
 				newAngle = currentAngle + steps
