@@ -71,7 +71,7 @@ func NewTestChainWebSrv(web chan Message, sendTestChain chan Ride) *WebSrv {
 }
 
 // LoopWebSrv - Begin the web server execution loop.
-func (s *WebSrv) LoopWebSrv() {
+func (s *WebSrv) LoopWebSrv(portAddress string) {
   // Create a simple file server
   fs := http.FileServer(http.Dir("public"))
   http.Handle("/", fs)
@@ -81,8 +81,8 @@ func (s *WebSrv) LoopWebSrv() {
 
   // Start the server on localhost portNo and log any errors
   go func() {
-		log.Printf("http server started on %s \n", ":8000")
-		err := http.ListenAndServe(":8000", nil)
+		log.Printf("http server started on %s \n", portAddress)
+		err := http.ListenAndServe(fmt.Sprintf(":%s",portAddress), nil)
 		if err != nil {
 			log.Fatal("ListenAndServe: ", err)
 		}
