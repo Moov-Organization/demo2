@@ -17,7 +17,7 @@ function saveAddress(e) {
     document.getElementById("get-ride-button").onclick = getTestChainRide;
   } else {
     mrmAddress = msg.mrmAddress
-    document.getElementById('eth-interface').style.visibility = "visible";
+    document.getElementById('eth-interface').style.display = "block";
     document.getElementById("getMC").onclick = getMCs;
     document.getElementById("approve-mc-button").onclick = approveMC;
     document.getElementById("get-ride-button").onclick = getRide;
