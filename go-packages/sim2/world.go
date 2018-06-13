@@ -160,12 +160,12 @@ func (w *World) updateStopLights() {
 		if time.Now().After(stopLight.alarm) {
 			for direction, lightState := range w.trafficInfo.stopLights[idx].lightstates {
 				if lightState == Green {
-					w.trafficInfo.stopLights[idx].lightstates[direction] = Red //TODO: Maybe switch this to orange too?
-					w.trafficInfo.stopLights[idx].lightstates[(direction+1)%NumberOfDirections] = Orange
+					w.trafficInfo.stopLights[idx].lightstates[direction] = Orange //TODO: Maybe switch this to orange too?
 					w.trafficInfo.stopLights[idx].alarm = time.Now().Add(time.Second)
 					break;
 				} else if lightState == Orange {
-					w.trafficInfo.stopLights[idx].lightstates[direction] = Green
+					w.trafficInfo.stopLights[idx].lightstates[direction] = Red
+					w.trafficInfo.stopLights[idx].lightstates[(direction+1)%NumberOfDirections] = Green
 					w.trafficInfo.stopLights[idx].alarm = time.Now().Add(time.Second * 5)
 					break;
 				}
