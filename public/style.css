@@ -8,12 +8,11 @@ div#Map {
 	position: relative;
 	float: left;
 	margin-left: 5%;
-	margin-top: 5%;
 	border: 1px solid;
 }
 
 div#eth-interface {
-  visibility: hidden;
+  display: none;
 }
 
 div#Cars {
