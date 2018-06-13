@@ -1,1 +1,34 @@
+Pre Reqs
+Go and Geth
+Install instructions for ubuntu
+    Go
+    https://github.com/golang/go/wiki/Ubuntu
+
+    Geth
+    https://github.com/ethereum/go-ethereum/wiki/Installation-Instructions-for-Ubuntu
+
+
+To run:
+
+Clone repo
+Create keys.txt file based of keys.txt.example.
+Open CLI
+    geth --testnet --ws   #Might take a while if first time
+In new tab
+    cd demo2
+    go get -d github.com/ethereum/go-ethereum
+    go get github.com/gorilla/websocket
+    go run demo2.go
+    OR
+    go run demo2.go --testing=<true or false> --port=<port number>
+
+
+If you dont know of a deployed Moov Ride Manager contract address then deploy it on remix.ethereum.org to ropsten by adding the following line to file
+    import "https://github.com/Moov-Organization/demo2/truffle/contracts/MoovRideManager.sol";
+Then switch to run tab, deploy Moov Coin, copy address of that and deploy Moov Ride Manager with Moov Coin Address.
+
+Generate private keys to populate cars in keys.txt
+openssl ecparam -name secp256k1 -genkey -noout | openssl ec -text -noout | grep priv -A 3 | tail -n +2 | tr -d '\n[:space:]:' | sed 's/^00//'
+
+Generate go binding for moov ride manager from the solidity file
 abigen --sol truffle/contracts/MoovRideManager.sol --pkg sim2 --out go-packages/sim2/mrm.go
