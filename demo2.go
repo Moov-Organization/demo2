@@ -14,6 +14,7 @@ import (
 func main() {
   fmt.Println("Starting demo2 simulation")
   testingFlagPtr := flag.Bool("testing", true, "a boolean to turn on testing")
+  portFlagPtr := flag.String("port", "8000", "a string to hold port number")
   flag.Parse()
 
   // Instantiate world
@@ -83,7 +84,7 @@ func main() {
   }
 
   // Begin JSON web output operation
-  go web.LoopWebSrv()
+  go web.LoopWebSrv(*portFlagPtr)
 
   select{}  // Do work in the coroutines, main has nothing left to do
 }
