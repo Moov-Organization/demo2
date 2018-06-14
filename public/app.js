@@ -27,7 +27,8 @@ function saveAddress(e) {
       // You have a web3 browser! Continue below!
       startApp(web3);
     } else {
-      alert("Get METAMASK!");
+      alert("Get METAMASK! or use non blockchain version at http://test.moovlab.online");
+      $(':button').prop('disabled', true);
        // Warn the user that they need to get a web3 browser
        // Or install MetaMask, maybe with a nice graphic.
     }
@@ -110,8 +111,19 @@ async function updateView() {
     const userApprovedMCs = await(moovCoin.allowance(coinbase, mrmAddress))
     document.getElementById("user-approved-mcs").innerHTML = userApprovedMCs[0].toNumber();
     document.getElementById("approve-mc-field").setAttribute("max", userBalance[0].toNumber() - userApprovedMCs[0].toNumber());
+    $('#approve-mc-button').prop('disabled', userBalance[0]==0);
 
     document.getElementById("get-ride-amount-field").setAttribute("max", userApprovedMCs[0].toNumber());
+    $('#get-ride-button').prop('disabled', userApprovedMCs[0]==0);
+    $('#set-start-point-button').prop('disabled', userApprovedMCs[0]==0);
+    $('#set-end-point-button').prop('disabled', userApprovedMCs[0]==0);
+
+    const rideState = await mrm.rides(coinbase);
+    if (rideState["rideStatus"].toNumber() == 2) {
+      document.getElementById("finish-ride-button").style.visibility = "visible";
+    } else {
+      document.getElementById("finish-ride-button").style.visibility = "hidden";
+    }
 }
 
 async function waitForTxToBeMined (txHash) {
