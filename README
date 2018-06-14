@@ -30,5 +30,5 @@ Then switch to run tab, deploy Moov Coin, copy address of that and deploy Moov R
 Generate private keys to populate cars in keys.txt
 openssl ecparam -name secp256k1 -genkey -noout | openssl ec -text -noout | grep priv -A 3 | tail -n +2 | tr -d '\n[:space:]:' | sed 's/^00//'
 
-Generate go binding for moov ride manager from the solidity file
+If you modify MoovRideManager.sol then generate go binding for go code from the solidity file by
 abigen --sol truffle/contracts/MoovRideManager.sol --pkg sim2 --out go-packages/sim2/mrm.go
