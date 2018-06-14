@@ -10,7 +10,7 @@
 <body>
 <div id="ui">
     <div id="eth-interface">
-        <span>MRM Address: </span>
+        <span>Smart Contract Address: </span>
         <span id="mrm-address"></span> <br/>
         <span> User Address: </span>
         <span id="user-address"></span> <br/>
@@ -19,12 +19,14 @@
         <span>MC</span>
         <input type="number" id="get-mc-field" step="100" value="100" min="0" max="900">
         <button type="button" id="getMC">Get MC</button><span> 1 ETH = 100 MC</span>
+        <span id="get-mc-debug"></span>
         <br/>
         <span> Approved for this Simulator: </span>
         <span id="user-approved-mcs"></span>
         <span>MC</span>
         <input type="number" id="approve-mc-field" step="1" value="0" min="0">
         <button type="button" id="approve-mc-button">Approve MC</button>
+        <span id="approve-mc-debug"></span>
     </div>
     <span> Get a ride: </span>
     <button type="button" id="set-start-point-button">Set Start Point</button>
@@ -35,7 +37,7 @@
     <span id="get-ride-debug"></span>
     <br/>
 
-    <a href="http://www.github.com/Moov-Organization/demo2/">Source Code</a> <a href="http://www.moovnow.org">Documentation</a> <a href="http://moovlab.online">Blockchain Version</a> <a href="http://test.moovlab.online">Non Blockchain Version</a>
+    <a href="http://www.github.com/Moov-Organization/demo2/">Source Code</a> <a href="http://www.moovnow.org">Documentation</a> <a href="http://moovlab.online" id="blockchain-version">Blockchain Version</a> <a href="http://test.moovlab.online" id="non-blockchain-version">Non Blockchain Version</a>
 </div>
 
 <div id="View">

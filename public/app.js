@@ -15,7 +15,9 @@ function saveAddress(e) {
   if (msg.testing == "true") {
     testing = true;
     document.getElementById("get-ride-button").onclick = getTestChainRide;
+    document.getElementById("non-blockchain-version").style.display = "none";
   } else {
+    document.getElementById("blockchain-version").style.display = "none";
     mrmAddress = msg.mrmAddress
     document.getElementById('eth-interface').style.display = "block";
     document.getElementById("getMC").onclick = getMCs;
@@ -29,6 +31,7 @@ function saveAddress(e) {
     } else {
       alert("Get METAMASK! or use non blockchain version at http://test.moovlab.online");
       $(':button').prop('disabled', true);
+      document.getElementById("get-ride-debug").innerHTML = "Get chrome plugin metamask to interface with the blockchain or use non blockchain version, link below"
        // Warn the user that they need to get a web3 browser
        // Or install MetaMask, maybe with a nice graphic.
     }
@@ -107,10 +110,20 @@ async function updateView() {
 
     const userBalance = await moovCoin.balanceOf(coinbase);
     document.getElementById("user-balance").innerHTML = userBalance[0].toNumber();
+    if (userBalance[0]==0) {
+      document.getElementById("get-mc-debug").innerHTML = "| Purchase Move Coins to get a ride";
+    } else {
+      document.getElementById("get-mc-debug").innerHTML = "";
+    }
 
     const userApprovedMCs = await(moovCoin.allowance(coinbase, mrmAddress))
     document.getElementById("user-approved-mcs").innerHTML = userApprovedMCs[0].toNumber();
     document.getElementById("approve-mc-field").setAttribute("max", userBalance[0].toNumber() - userApprovedMCs[0].toNumber());
+    if (userBalance[0] > 0 && userApprovedMCs[0] == 0) {
+      document.getElementById("approve-mc-debug").innerHTML = "  Authorize smart contract to spend money on your behalf";
+    } else {
+      document.getElementById("approve-mc-debug").innerHTML = "";
+    }
     $('#approve-mc-button').prop('disabled', userBalance[0]==0);
 
     document.getElementById("get-ride-amount-field").setAttribute("max", userApprovedMCs[0].toNumber());
@@ -180,6 +193,13 @@ async function getRide(){
     const start = getLocations('start-point')
     const end = getLocations('end-point')
     const amount = parseInt(document.getElementById("get-ride-amount-field").value);
+
+    const rideState = await mrm.rides(coinbase);
+    if (rideState["rideStatus"].toNumber() != 0) {
+      debugElement.innerHTML = "End current ride to get another ride";
+      return;
+    }
+
     if (start == "location not set"){
       debugElement.innerHTML = "Set Start Point before getting ride";
       return;
